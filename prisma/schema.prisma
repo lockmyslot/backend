@@ -1,0 +1,135 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───
+
+enum GroupRole {
+  ADMIN
+  MEMBER
+}
+
+enum DayScope {
+  WEEKDAY
+  WEEKEND
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+}
+
+// ─── Models ───
+
+model User {
+  id          String   @id @default(uuid()) @db.Uuid
+  displayName String   @map("display_name")
+  authToken   String   @unique @map("auth_token") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  memberships   GroupMember[]
+  bookings      Booking[]
+  createdGroups Group[]       @relation("GroupCreator")
+
+  @@map("users")
+}
+
+model Group {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  inviteCode  String   @unique @map("invite_code")
+  createdById String   @map("created_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  createdBy User          @relation("GroupCreator", fields: [createdById], references: [id])
+  members   GroupMember[]
+  resources Resource[]
+  bookings  Booking[]
+
+  @@map("groups")
+}
+
+model GroupMember {
+  id       String    @id @default(uuid()) @db.Uuid
+  groupId  String    @map("group_id") @db.Uuid
+  userId   String    @map("user_id") @db.Uuid
+  role     GroupRole @default(MEMBER)
+  joinedAt DateTime  @default(now()) @map("joined_at")
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@map("group_members")
+}
+
+model Resource {
+  id                  String   @id @default(uuid()) @db.Uuid
+  groupId             String   @map("group_id") @db.Uuid
+  name                String
+  description         String?
+  capacity            Int      @default(1)
+  slotDurationMinutes Int      @map("slot_duration_minutes") @default(30)
+  isActive            Boolean  @default(true) @map("is_active")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  group        Group         @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  bookingRules BookingRule[]
+  bookings     Booking[]
+
+  @@map("resources")
+}
+
+model BookingRule {
+  id                    String   @id @default(uuid()) @db.Uuid
+  resourceId            String   @map("resource_id") @db.Uuid
+  dayScope              DayScope @map("day_scope")
+  maxBookingsPerDay     Int?     @map("max_bookings_per_day")
+  maxHoursPerDay        Int?     @map("max_hours_per_day")
+  cooldownMinutes       Int?     @map("cooldown_minutes")
+  minDurationMinutes    Int?     @map("min_duration_minutes")
+  maxDurationMinutes    Int?     @map("max_duration_minutes")
+  maxAdvanceBookingDays Int?     @map("max_advance_booking_days")
+  availableFrom         String?  @map("available_from")   // "HH:mm" format
+  availableUntil        String?  @map("available_until")   // "HH:mm" format
+
+  resource Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@unique([resourceId, dayScope])
+  @@map("booking_rules")
+}
+
+model Booking {
+  id         String        @id @default(uuid()) @db.Uuid
+  resourceId String        @map("resource_id") @db.Uuid
+  userId     String        @map("user_id") @db.Uuid
+  groupId    String        @map("group_id") @db.Uuid
+  startTime  DateTime      @map("start_time")
+  endTime    DateTime      @map("end_time")
+  status     BookingStatus @default(CONFIRMED)
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+
+  resource Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([resourceId, startTime, endTime])
+  @@index([userId, groupId])
+  @@map("bookings")
+}
