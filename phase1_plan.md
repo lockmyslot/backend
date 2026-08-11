@@ -7,7 +7,7 @@ Scaffolding, Prisma schema, Docker, Swagger, and shared infrastructure (guards, 
 ## Step 1: Scaffold NestJS Project
 
 ```bash
-npx -y @nestjs/cli new openslot --package-manager pnpm --skip-git
+npx -y @nestjs/cli new lockmyslot --package-manager pnpm --skip-git
 ```
 
 Install dependencies:
@@ -35,7 +35,7 @@ pnpm add @nestjs/config
 
 ## Step 2: Docker Compose (PostgreSQL)
 
-#### [NEW] [docker-compose.yml](file:///home/krissh/Projects/openslot/docker-compose.yml)
+#### [NEW] [docker-compose.yml](file:///home/krissh/Projects/lockmyslot/docker-compose.yml)
 
 ```yaml
 services:
@@ -44,9 +44,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: openslot
-      POSTGRES_PASSWORD: openslot
-      POSTGRES_DB: openslot
+      POSTGRES_USER: lockmyslot
+      POSTGRES_PASSWORD: lockmyslot
+      POSTGRES_DB: lockmyslot
     volumes:
       - pgdata:/var/lib/postgresql/data
 
@@ -54,10 +54,10 @@ volumes:
   pgdata:
 ```
 
-#### [NEW] [.env](file:///home/krissh/Projects/openslot/.env)
+#### [NEW] [.env](file:///home/krissh/Projects/lockmyslot/.env)
 
 ```env
-DATABASE_URL="postgresql://openslot:openslot@localhost:5432/openslot?schema=public"
+DATABASE_URL="postgresql://lockmyslot:lockmyslot@localhost:5432/lockmyslot?schema=public"
 PORT=3000
 ```
 
@@ -65,7 +65,7 @@ PORT=3000
 
 ## Step 3: Prisma Schema
 
-#### [NEW] [prisma/schema.prisma](file:///home/krissh/Projects/openslot/prisma/schema.prisma)
+#### [NEW] [prisma/schema.prisma](file:///home/krissh/Projects/lockmyslot/prisma/schema.prisma)
 
 Full schema with all 6 tables, enums, relations, and indexes:
 
@@ -224,11 +224,11 @@ npx prisma generate
 
 ## Step 4: Prisma Service Module
 
-#### [NEW] [src/prisma/prisma.service.ts](file:///home/krissh/Projects/openslot/src/prisma/prisma.service.ts)
+#### [NEW] [src/prisma/prisma.service.ts](file:///home/krissh/Projects/lockmyslot/src/prisma/prisma.service.ts)
 
 Standard NestJS Prisma service with `onModuleInit` for connection and `enableShutdownHooks`.
 
-#### [NEW] [src/prisma/prisma.module.ts](file:///home/krissh/Projects/openslot/src/prisma/prisma.module.ts)
+#### [NEW] [src/prisma/prisma.module.ts](file:///home/krissh/Projects/lockmyslot/src/prisma/prisma.module.ts)
 
 Global module exporting `PrismaService` so all other modules can inject it without importing.
 
@@ -238,7 +238,7 @@ Global module exporting `PrismaService` so all other modules can inject it witho
 
 ### Auth Guard
 
-#### [NEW] [src/common/guards/auth.guard.ts](file:///home/krissh/Projects/openslot/src/common/guards/auth.guard.ts)
+#### [NEW] [src/common/guards/auth.guard.ts](file:///home/krissh/Projects/lockmyslot/src/common/guards/auth.guard.ts)
 
 - Reads `Authorization: Bearer <token>` header
 - Looks up user by `auth_token` in the database
@@ -247,13 +247,13 @@ Global module exporting `PrismaService` so all other modules can inject it witho
 
 ### Current User Decorator
 
-#### [NEW] [src/common/decorators/current-user.decorator.ts](file:///home/krissh/Projects/openslot/src/common/decorators/current-user.decorator.ts)
+#### [NEW] [src/common/decorators/current-user.decorator.ts](file:///home/krissh/Projects/lockmyslot/src/common/decorators/current-user.decorator.ts)
 
 `@CurrentUser()` parameter decorator that extracts `request.user` — avoids reaching into the raw request object in controllers.
 
 ### Snake Case Serialization Interceptor
 
-#### [NEW] [src/common/interceptors/serialize.interceptor.ts](file:///home/krissh/Projects/openslot/src/common/interceptors/serialize.interceptor.ts)
+#### [NEW] [src/common/interceptors/serialize.interceptor.ts](file:///home/krissh/Projects/lockmyslot/src/common/interceptors/serialize.interceptor.ts)
 
 Global interceptor that:
 1. Recursively converts all response object keys from camelCase → snake_case
@@ -264,7 +264,7 @@ This lets us write idiomatic camelCase TypeScript internally while serving snake
 
 ### Global Exception Filter
 
-#### [NEW] [src/common/filters/http-exception.filter.ts](file:///home/krissh/Projects/openslot/src/common/filters/http-exception.filter.ts)
+#### [NEW] [src/common/filters/http-exception.filter.ts](file:///home/krissh/Projects/lockmyslot/src/common/filters/http-exception.filter.ts)
 
 Catches all exceptions and returns consistent error responses:
 
@@ -280,7 +280,7 @@ Catches all exceptions and returns consistent error responses:
 
 ### Roles Decorator
 
-#### [NEW] [src/common/decorators/roles.decorator.ts](file:///home/krissh/Projects/openslot/src/common/decorators/roles.decorator.ts)
+#### [NEW] [src/common/decorators/roles.decorator.ts](file:///home/krissh/Projects/lockmyslot/src/common/decorators/roles.decorator.ts)
 
 `@Roles(GroupRole.ADMIN)` decorator for marking endpoints that require a specific group role. Used in conjunction with the group member guard (Phase 2).
 
@@ -288,13 +288,13 @@ Catches all exceptions and returns consistent error responses:
 
 ## Step 6: Swagger / OAS 3 Setup
 
-#### [MODIFY] [src/main.ts](file:///home/krissh/Projects/openslot/src/main.ts)
+#### [MODIFY] [src/main.ts](file:///home/krissh/Projects/lockmyslot/src/main.ts)
 
 Configure Swagger with OAS 3 output:
 
 ```typescript
 const config = new DocumentBuilder()
-  .setTitle('OpenSlot API')
+  .setTitle('Lock My Slot API')
   .setDescription('Resource booking API for small groups')
   .setVersion('1.0')
   .addBearerAuth()
@@ -315,7 +315,7 @@ Also in `main.ts`:
 
 ## Step 7: Seed Script
 
-#### [NEW] [prisma/seed.ts](file:///home/krissh/Projects/openslot/prisma/seed.ts)
+#### [NEW] [prisma/seed.ts](file:///home/krissh/Projects/lockmyslot/prisma/seed.ts)
 
 Creates sample data for dev:
 - 2 users (Alice as admin, Bob as member)

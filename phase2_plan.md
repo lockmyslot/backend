@@ -110,7 +110,7 @@ src/groups/
 
 ### Group Member Guard
 
-#### [NEW] [src/groups/guards/group-member.guard.ts](file:///home/krissh/Projects/openslot/src/groups/guards/group-member.guard.ts)
+#### [NEW] [src/groups/guards/group-member.guard.ts](file:///home/krissh/Projects/lockmyslot/src/groups/guards/group-member.guard.ts)
 
 A guard that:
 1. Extracts `:id` (or `:group_id`) from the route params

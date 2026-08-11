@@ -53,7 +53,7 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter());
 
   const config = new DocumentBuilder()
-    .setTitle('OpenSlot API')
+    .setTitle('Lock My Slot API')
     .setDescription('Resource booking API for small groups')
     .setVersion('1.0')
     .addBearerAuth()
@@ -66,7 +66,7 @@ async function bootstrap() {
   await app.listen(port, '0.0.0.0');
 
   const localIp = getLocalIpAddress();
-  console.log(`OpenSlot API running at:`);
+  console.log(`Lock My Slot API running at:`);
   console.log(`  - Local:   http://localhost:${port}/api/v1`);
   if (localIp) {
     console.log(`  - Network: http://${localIp}:${port}/api/v1`);

@@ -246,7 +246,7 @@ Requires membership. Lists the current user's bookings across all resources in t
 
 ## Rule Evaluation Engine
 
-#### [NEW] [src/bookings/rules.service.ts](file:///home/krissh/Projects/openslot/src/bookings/rules.service.ts)
+#### [NEW] [src/bookings/rules.service.ts](file:///home/krissh/Projects/lockmyslot/src/bookings/rules.service.ts)
 
 The core business logic — a standalone service with no side effects (pure validation).
 

@@ -1,4 +1,4 @@
-# OpenSlot — Resource Booking App (MVP)
+# Lock My Slot — Resource Booking App (MVP)
 
 A multi-tenant resource booking app for small groups. Users join groups via invite codes, admins manage resources and booking rules, and members book time slots on shared resources.
 
@@ -25,7 +25,7 @@ graph TB
         FL["Flutter App<br/>(iOS + Android)"]
     end
 
-    subgraph "Backend — openslot (NestJS)"
+    subgraph "Backend — lockmyslot (NestJS)"
         API["REST API"]
     end
 
@@ -270,7 +270,7 @@ validateBooking(resourceId, userId, startTime, endTime):
 ## Project Structure
 
 ```
-openslot/
+lockmyslot/
 ├── prisma/
 │   ├── schema.prisma
 │   └── seed.ts
