@@ -58,7 +58,9 @@ describe('GroupsService', () => {
       _count: { members: 1 },
     });
 
-    const result = await service.createGroup('user-1', { name: 'Apartment 4B' });
+    const result = await service.createGroup('user-1', {
+      name: 'Apartment 4B',
+    });
     expect(result).toHaveProperty('id', 'group-1');
     expect(result).toHaveProperty('role', GroupRole.ADMIN);
     expect(result).toHaveProperty('inviteCode', 'X7K9M2');
@@ -122,5 +124,203 @@ describe('GroupsService', () => {
     await expect(
       service.removeMember('group-1', 'admin-1', 'user-2'),
     ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('should retry invite code generation when the first code collides', async () => {
+    (prismaService.group.findUnique as jest.Mock)
+      .mockResolvedValueOnce({ id: 'existing-group' })
+      .mockResolvedValueOnce(null);
+    (prismaService.group.create as jest.Mock).mockResolvedValue({
+      id: 'group-1',
+      name: 'Apartment 4B',
+      inviteCode: 'ABCDEF',
+      createdById: 'user-1',
+      createdAt: new Date(),
+      _count: { members: 1 },
+    });
+
+    const result = await service.createGroup('user-1', {
+      name: 'Apartment 4B',
+    });
+    expect(result).toHaveProperty('inviteCode', 'ABCDEF');
+  });
+
+  it('should list user groups including invite code for ADMIN', async () => {
+    (prismaService.groupMember.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'member-1',
+        userId: 'user-1',
+        role: GroupRole.ADMIN,
+        joinedAt: new Date(),
+        group: {
+          id: 'group-1',
+          name: 'Apartment 4B',
+          inviteCode: 'X7K9M2',
+          createdAt: new Date(),
+          _count: { members: 3 },
+        },
+      },
+      {
+        id: 'member-2',
+        userId: 'user-1',
+        role: GroupRole.MEMBER,
+        joinedAt: new Date(),
+        group: {
+          id: 'group-2',
+          name: 'Office',
+          inviteCode: 'SECRET',
+          createdAt: new Date(),
+          _count: { members: 5 },
+        },
+      },
+    ]);
+
+    const result = await service.getUserGroups('user-1');
+    expect(result).toHaveLength(2);
+    expect(result[0]).toHaveProperty('inviteCode', 'X7K9M2');
+    expect(result[1]).not.toHaveProperty('inviteCode');
+    expect(result[1]).toHaveProperty('memberCount', 5);
+  });
+
+  it('should throw NotFoundException if group not found in getGroupDetails', async () => {
+    (prismaService.group.findUnique as jest.Mock).mockResolvedValue(null);
+
+    await expect(service.getGroupDetails('group-1', 'user-1')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('should throw ForbiddenException if user is not a member in getGroupDetails', async () => {
+    (prismaService.group.findUnique as jest.Mock).mockResolvedValue({
+      id: 'group-1',
+      name: 'Apartment 4B',
+      inviteCode: 'X7K9M2',
+      createdAt: new Date(),
+      members: [],
+      _count: { members: 1 },
+    });
+
+    await expect(service.getGroupDetails('group-1', 'user-1')).rejects.toThrow(
+      ForbiddenException,
+    );
+  });
+
+  it('should return group details for a member', async () => {
+    (prismaService.group.findUnique as jest.Mock).mockResolvedValue({
+      id: 'group-1',
+      name: 'Apartment 4B',
+      inviteCode: 'X7K9M2',
+      createdAt: new Date(),
+      members: [{ role: GroupRole.ADMIN }],
+      _count: { members: 2 },
+    });
+
+    const result = await service.getGroupDetails('group-1', 'user-1');
+    expect(result).toHaveProperty('inviteCode', 'X7K9M2');
+    expect(result).toHaveProperty('role', GroupRole.ADMIN);
+  });
+
+  it('should join a group successfully', async () => {
+    (prismaService.group.findUnique as jest.Mock).mockResolvedValue({
+      id: 'group-1',
+      name: 'Apartment 4B',
+      inviteCode: 'X7K9M2',
+      createdAt: new Date(),
+      _count: { members: 2 },
+    });
+    (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue(null);
+    (prismaService.groupMember.create as jest.Mock).mockResolvedValue({});
+
+    const result = await service.joinGroup('user-3', { inviteCode: 'X7K9M2' });
+    expect(result).toHaveProperty('role', GroupRole.MEMBER);
+    expect(result).toHaveProperty('memberCount', 3);
+  });
+
+  it('should update a group name', async () => {
+    (prismaService.group.update as jest.Mock).mockResolvedValue({
+      id: 'group-1',
+      name: 'Renamed',
+      inviteCode: 'X7K9M2',
+      createdAt: new Date(),
+      _count: { members: 2 },
+    });
+
+    const result = await service.updateGroup(
+      'group-1',
+      { name: 'Renamed' },
+      'user-1',
+    );
+    expect(result).toHaveProperty('name', 'Renamed');
+    expect(result).toHaveProperty('role', GroupRole.ADMIN);
+  });
+
+  it('should list group members', async () => {
+    (prismaService.groupMember.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'member-1',
+        role: GroupRole.ADMIN,
+        joinedAt: new Date(),
+        user: { id: 'user-1', displayName: 'Alice' },
+      },
+    ]);
+
+    const result = await service.getMembers('group-1');
+    expect(result[0]).toHaveProperty('displayName', 'Alice');
+    expect(result[0]).toHaveProperty('role', GroupRole.ADMIN);
+  });
+
+  it('should throw NotFoundException if target member not found in removeMember', async () => {
+    (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue(null);
+
+    await expect(
+      service.removeMember('group-1', 'admin-1', 'user-2'),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('should remove a member and cancel their future bookings', async () => {
+    (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue({
+      id: 'member-2',
+      groupId: 'group-1',
+      userId: 'user-2',
+      role: GroupRole.MEMBER,
+    });
+    (prismaService.groupMember.delete as jest.Mock).mockResolvedValue({});
+    (prismaService.booking.updateMany as jest.Mock).mockResolvedValue({});
+
+    await service.removeMember('group-1', 'admin-1', 'user-2');
+    expect(prismaService.groupMember.delete).toHaveBeenCalled();
+    expect(prismaService.booking.updateMany).toHaveBeenCalled();
+  });
+
+  it('should throw NotFoundException when leaving a group you are not in', async () => {
+    (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue(null);
+
+    await expect(service.leaveGroup('group-1', 'user-1')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('should allow a non-admin member to leave the group', async () => {
+    (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue({
+      id: 'member-2',
+      groupId: 'group-1',
+      userId: 'user-2',
+      role: GroupRole.MEMBER,
+    });
+    (prismaService.groupMember.delete as jest.Mock).mockResolvedValue({});
+    (prismaService.booking.updateMany as jest.Mock).mockResolvedValue({});
+
+    await service.leaveGroup('group-1', 'user-2');
+    expect(prismaService.groupMember.delete).toHaveBeenCalled();
+    expect(prismaService.booking.updateMany).toHaveBeenCalled();
+  });
+
+  it('should regenerate invite code', async () => {
+    (prismaService.group.findUnique as jest.Mock).mockResolvedValue(null);
+    (prismaService.group.update as jest.Mock).mockResolvedValue({});
+
+    const result = await service.regenerateInviteCode('group-1');
+    expect(result).toHaveProperty('inviteCode');
+    expect(prismaService.group.update).toHaveBeenCalled();
   });
 });

@@ -114,4 +114,68 @@ describe('BookingRulesService', () => {
     expect(result).toHaveLength(1);
     expect(result[0]).toHaveProperty('dayScope', DayScope.WEEKDAY);
   });
+
+  it('should throw BadRequestException if minDurationMinutes > maxDurationMinutes', async () => {
+    (prismaService.resource.findFirst as jest.Mock).mockResolvedValue({
+      id: 'res-1',
+      groupId: 'group-1',
+      slotDurationMinutes: 30,
+    });
+
+    await expect(
+      service.upsertRules('group-1', 'res-1', [
+        {
+          dayScope: DayScope.WEEKDAY,
+          minDurationMinutes: 120,
+          maxDurationMinutes: 60,
+        },
+      ]),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('should clear all rules when empty array is provided', async () => {
+    (prismaService.resource.findFirst as jest.Mock).mockResolvedValue({
+      id: 'res-1',
+      groupId: 'group-1',
+      slotDurationMinutes: 30,
+    });
+    (prismaService.bookingRule.findMany as jest.Mock).mockResolvedValue([]);
+
+    const result = await service.upsertRules('group-1', 'res-1', []);
+    expect(result).toHaveLength(0);
+  });
+
+  it('should throw NotFoundException if resource not found in getRules', async () => {
+    (prismaService.resource.findFirst as jest.Mock).mockResolvedValue(null);
+
+    await expect(service.getRules('group-1', 'res-1')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('should return mapped rules in getRules', async () => {
+    (prismaService.resource.findFirst as jest.Mock).mockResolvedValue({
+      id: 'res-1',
+      groupId: 'group-1',
+    });
+    (prismaService.bookingRule.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'rule-1',
+        resourceId: 'res-1',
+        dayScope: DayScope.WEEKDAY,
+        maxBookingsPerDay: 2,
+        maxHoursPerDay: 3,
+        cooldownMinutes: 30,
+        minDurationMinutes: 30,
+        maxDurationMinutes: 120,
+        maxAdvanceBookingDays: 7,
+        availableFrom: '08:00',
+        availableUntil: '22:00',
+      },
+    ]);
+
+    const result = await service.getRules('group-1', 'res-1');
+    expect(result).toHaveLength(1);
+    expect(result[0]).toHaveProperty('maxBookingsPerDay', 2);
+  });
 });
