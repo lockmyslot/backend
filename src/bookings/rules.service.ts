@@ -1,6 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Resource, DayScope, BookingStatus } from '@prisma/client';
+import {
+  Resource,
+  DayScope,
+  BookingStatus,
+  MaintenanceStatus,
+} from '@prisma/client';
+import { isIntervalOverlappingMaintenance } from '../maintenance/maintenance.service';
 
 export interface ValidationResult {
   allowed: boolean;
@@ -67,6 +73,26 @@ export class RulesService {
       violations.push(
         `duration must be a multiple of slot_duration_minutes (${resource.slotDurationMinutes})`,
       );
+    }
+
+    // ── Check Maintenance ──
+    const maintenanceTasks = await this.prisma.maintenanceTask.findMany({
+      where: {
+        resourceId: resource.id,
+        status: {
+          in: [MaintenanceStatus.SCHEDULED, MaintenanceStatus.IN_PROGRESS],
+        },
+        startTime: { lt: endTime },
+        endTime: { gt: startTime },
+      },
+    });
+
+    const isUnderMaintenance = maintenanceTasks.some((task) =>
+      isIntervalOverlappingMaintenance(startTime, endTime, task),
+    );
+
+    if (isUnderMaintenance) {
+      violations.push('resource_under_maintenance');
     }
 
     // ── 2. RULE RESOLUTION ──

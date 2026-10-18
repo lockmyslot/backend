@@ -29,6 +29,9 @@ describe('RulesService (Rule Evaluation Engine)', () => {
         findMany: jest.fn(),
         findFirst: jest.fn(),
       },
+      maintenanceTask: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -66,7 +69,13 @@ describe('RulesService (Rule Evaluation Engine)', () => {
     });
     (prismaService.booking.count as jest.Mock).mockResolvedValue(0);
 
-    const res = await service.validate(mockResource, 'user-1', 'group-1', start, end);
+    const res = await service.validate(
+      mockResource,
+      'user-1',
+      'group-1',
+      start,
+      end,
+    );
     expect(res.allowed).toBe(true);
     expect(res.violations).toHaveLength(0);
   });
@@ -84,7 +93,13 @@ describe('RulesService (Rule Evaluation Engine)', () => {
     });
     (prismaService.booking.count as jest.Mock).mockResolvedValue(0);
 
-    const res = await service.validate(mockResource, 'user-1', 'group-1', start, end);
+    const res = await service.validate(
+      mockResource,
+      'user-1',
+      'group-1',
+      start,
+      end,
+    );
     expect(res.allowed).toBe(false);
     expect(res.violations[0]).toContain('starts before available_from');
   });
@@ -102,7 +117,13 @@ describe('RulesService (Rule Evaluation Engine)', () => {
     });
     (prismaService.booking.count as jest.Mock).mockResolvedValue(0);
 
-    const res = await service.validate(resWith15Min, 'user-1', 'group-1', start, end);
+    const res = await service.validate(
+      resWith15Min,
+      'user-1',
+      'group-1',
+      start,
+      end,
+    );
     expect(res.allowed).toBe(false);
     expect(res.violations[0]).toContain('min_duration');
   });
@@ -119,7 +140,13 @@ describe('RulesService (Rule Evaluation Engine)', () => {
     });
     (prismaService.booking.count as jest.Mock).mockResolvedValue(0);
 
-    const res = await service.validate(mockResource, 'user-1', 'group-1', start, end);
+    const res = await service.validate(
+      mockResource,
+      'user-1',
+      'group-1',
+      start,
+      end,
+    );
     expect(res.allowed).toBe(false);
     expect(res.violations[0]).toContain('max_duration');
   });
@@ -131,7 +158,13 @@ describe('RulesService (Rule Evaluation Engine)', () => {
     (prismaService.bookingRule.findFirst as jest.Mock).mockResolvedValue(null);
     (prismaService.booking.count as jest.Mock).mockResolvedValue(0);
 
-    const res = await service.validate(mockResource, 'user-1', 'group-1', start, end);
+    const res = await service.validate(
+      mockResource,
+      'user-1',
+      'group-1',
+      start,
+      end,
+    );
     expect(res.allowed).toBe(false);
     expect(res.violations[0]).toContain('multiple of slot_duration_minutes');
   });
@@ -147,12 +180,20 @@ describe('RulesService (Rule Evaluation Engine)', () => {
       maxBookingsPerDay: 2,
     });
     // User already has 2 bookings today
-    (prismaService.booking.count as jest.Mock).mockImplementation((args: any) => {
-      if (args.where?.userId) return Promise.resolve(2);
-      return Promise.resolve(0);
-    });
+    (prismaService.booking.count as jest.Mock).mockImplementation(
+      (args: any) => {
+        if (args.where?.userId) return Promise.resolve(2);
+        return Promise.resolve(0);
+      },
+    );
 
-    const res = await service.validate(mockResource, 'user-1', 'group-1', start, end);
+    const res = await service.validate(
+      mockResource,
+      'user-1',
+      'group-1',
+      start,
+      end,
+    );
     expect(res.allowed).toBe(false);
     expect(res.violations[0]).toContain('max_bookings_per_day');
   });
@@ -176,7 +217,13 @@ describe('RulesService (Rule Evaluation Engine)', () => {
       },
     ]);
 
-    const res = await service.validate(mockResource, 'user-1', 'group-1', start, end);
+    const res = await service.validate(
+      mockResource,
+      'user-1',
+      'group-1',
+      start,
+      end,
+    );
     expect(res.allowed).toBe(false);
     expect(res.violations[0]).toContain('max_hours_per_day');
   });
@@ -193,12 +240,20 @@ describe('RulesService (Rule Evaluation Engine)', () => {
     });
     (prismaService.booking.count as jest.Mock).mockResolvedValue(0);
     // Nearest previous booking ended 30 mins ago (10:00)
-    (prismaService.booking.findFirst as jest.Mock).mockResolvedValueOnce(null).mockResolvedValueOnce({
-      startTime: getTomorrowAt(9),
-      endTime: getTomorrowAt(10),
-    });
+    (prismaService.booking.findFirst as jest.Mock)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        startTime: getTomorrowAt(9),
+        endTime: getTomorrowAt(10),
+      });
 
-    const res = await service.validate({ ...mockResource, slotDurationMinutes: 30 }, 'user-1', 'group-1', start, end);
+    const res = await service.validate(
+      { ...mockResource, slotDurationMinutes: 30 },
+      'user-1',
+      'group-1',
+      start,
+      end,
+    );
     expect(res.allowed).toBe(false);
     expect(res.violations[0]).toContain('cooldown');
   });
@@ -210,7 +265,13 @@ describe('RulesService (Rule Evaluation Engine)', () => {
     (prismaService.bookingRule.findFirst as jest.Mock).mockResolvedValue(null);
     (prismaService.booking.count as jest.Mock).mockResolvedValue(1); // capacity is 1, booked is 1
 
-    const res = await service.validate(mockResource, 'user-1', 'group-1', start, end);
+    const res = await service.validate(
+      mockResource,
+      'user-1',
+      'group-1',
+      start,
+      end,
+    );
     expect(res.allowed).toBe(false);
     expect(res.isCapacityError).toBe(true);
     expect(res.violations[0]).toContain('capacity reached');
@@ -223,7 +284,13 @@ describe('RulesService (Rule Evaluation Engine)', () => {
     (prismaService.bookingRule.findFirst as jest.Mock).mockResolvedValue(null);
     (prismaService.booking.count as jest.Mock).mockResolvedValue(0);
 
-    const res = await service.validate(mockResource, 'user-1', 'group-1', start, end);
+    const res = await service.validate(
+      mockResource,
+      'user-1',
+      'group-1',
+      start,
+      end,
+    );
     expect(res.allowed).toBe(true);
   });
 
@@ -231,7 +298,13 @@ describe('RulesService (Rule Evaluation Engine)', () => {
     const start = new Date(Date.now() - 3600000);
     const end = new Date(Date.now() - 1800000);
 
-    const res = await service.validate(mockResource, 'user-1', 'group-1', start, end);
+    const res = await service.validate(
+      mockResource,
+      'user-1',
+      'group-1',
+      start,
+      end,
+    );
     expect(res.allowed).toBe(false);
     expect(res.violations[0]).toContain('in the future');
   });
@@ -241,8 +314,70 @@ describe('RulesService (Rule Evaluation Engine)', () => {
     const start = getTomorrowAt(10);
     const end = getTomorrowAt(11);
 
-    const res = await service.validate(inactiveRes, 'user-1', 'group-1', start, end);
+    const res = await service.validate(
+      inactiveRes,
+      'user-1',
+      'group-1',
+      start,
+      end,
+    );
     expect(res.allowed).toBe(false);
     expect(res.violations[0]).toContain('resource is inactive');
+  });
+
+  it('13. should reject booking if resource is under one-off maintenance', async () => {
+    const start = getTomorrowAt(10);
+    const end = getTomorrowAt(11);
+
+    (prismaService.maintenanceTask.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'task-1',
+        resourceId: mockResource.id,
+        status: 'SCHEDULED',
+        recurrenceType: 'NONE',
+        startTime: getTomorrowAt(9),
+        endTime: getTomorrowAt(12),
+      },
+    ]);
+
+    const res = await service.validate(
+      mockResource,
+      'user-1',
+      'group-1',
+      start,
+      end,
+    );
+    expect(res.allowed).toBe(false);
+    expect(res.violations).toContain('resource_under_maintenance');
+  });
+
+  it('14. should reject booking if resource is under recurring weekly maintenance', async () => {
+    const start = getTomorrowAt(10);
+    const end = getTomorrowAt(11);
+    const dayOfWeek = start.getUTCDay();
+
+    (prismaService.maintenanceTask.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'task-2',
+        resourceId: mockResource.id,
+        status: 'SCHEDULED',
+        recurrenceType: 'WEEKLY',
+        dayOfWeek,
+        startTimeOfDay: '09:00',
+        endTimeOfDay: '12:00',
+        startTime: new Date('2026-01-01T00:00:00Z'),
+        endTime: new Date('2026-12-31T23:59:59Z'),
+      },
+    ]);
+
+    const res = await service.validate(
+      mockResource,
+      'user-1',
+      'group-1',
+      start,
+      end,
+    );
+    expect(res.allowed).toBe(false);
+    expect(res.violations).toContain('resource_under_maintenance');
   });
 });

@@ -14,7 +14,10 @@ export function transformKeysToCamelCase(obj: any): any {
     return obj.map((item) => transformKeysToCamelCase(item));
   }
 
-  if (typeof obj === 'object' && obj.constructor === Object) {
+  if (
+    typeof obj === 'object' &&
+    (!obj.constructor || obj.constructor === Object || obj.constructor.name === 'Object')
+  ) {
     const transformed: Record<string, any> = {};
     for (const key of Object.keys(obj)) {
       const camelKey = toCamelCase(key);
@@ -34,10 +37,12 @@ export class SnakeCaseMiddleware implements NestMiddleware {
     }
     if (req.query && typeof req.query === 'object') {
       const transformedQuery = transformKeysToCamelCase(req.query);
-      for (const key of Object.keys(req.query)) {
-        delete (req.query as any)[key];
-      }
-      Object.assign(req.query, transformedQuery);
+      Object.defineProperty(req, 'query', {
+        value: transformedQuery,
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      });
     }
     next();
   }

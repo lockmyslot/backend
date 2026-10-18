@@ -48,7 +48,8 @@ export class CreateResourceDto {
   capacity: number;
 
   @ApiProperty({
-    description: 'Slot duration granularity in minutes (15 to 1080, multiple of 15)',
+    description:
+      'Slot duration granularity in minutes (15 to 1080, multiple of 15)',
     example: 60,
     minimum: 15,
     maximum: 1080,

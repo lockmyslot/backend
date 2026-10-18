@@ -222,7 +222,11 @@ export class GroupsService {
     }));
   }
 
-  async removeMember(groupId: string, currentUserId: string, targetUserId: string) {
+  async removeMember(
+    groupId: string,
+    currentUserId: string,
+    targetUserId: string,
+  ) {
     if (currentUserId === targetUserId) {
       throw new BadRequestException('cannot_remove_self');
     }

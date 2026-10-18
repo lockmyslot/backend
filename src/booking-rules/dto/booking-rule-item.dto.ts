@@ -45,7 +45,8 @@ export class BookingRuleItemDto {
   maxHoursPerDay?: number;
 
   @ApiProperty({
-    description: 'Required cooldown period in minutes between bookings for a user',
+    description:
+      'Required cooldown period in minutes between bookings for a user',
     required: false,
     example: 60,
     minimum: 0,

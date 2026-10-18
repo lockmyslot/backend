@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { PrismaClient, GroupRole, DayScope, BookingStatus } from '@prisma/client';
 
 const prisma = new PrismaClient();

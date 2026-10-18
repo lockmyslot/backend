@@ -9,7 +9,13 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiBody } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiResponse,
+  ApiBody,
+} from '@nestjs/swagger';
 import { BookingRulesService } from './booking-rules.service';
 import { BookingRuleItemDto } from './dto/booking-rule-item.dto';
 import { AuthGuard } from '../common/guards/auth.guard';
@@ -37,16 +43,26 @@ export class BookingRulesController {
   @Put()
   @Roles(GroupRole.ADMIN)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Bulk replace/upsert all booking rules for a resource (ADMIN only)' })
+  @ApiOperation({
+    summary:
+      'Bulk replace/upsert all booking rules for a resource (ADMIN only)',
+  })
   @ApiBody({ type: [BookingRuleItemDto] })
   @ApiResponse({ status: 200, description: 'Updated rules array' })
-  @ApiResponse({ status: 400, description: 'Validation failed or duplicate_day_scope' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation failed or duplicate_day_scope',
+  })
   async upsertRules(
     @Param('group_id') groupId: string,
     @Param('resource_id') resourceId: string,
     @Body(new ParseArrayPipe({ items: BookingRuleItemDto, optional: true }))
     rules: BookingRuleItemDto[] = [],
   ) {
-    return this.bookingRulesService.upsertRules(groupId, resourceId, rules || []);
+    return this.bookingRulesService.upsertRules(
+      groupId,
+      resourceId,
+      rules || [],
+    );
   }
 }

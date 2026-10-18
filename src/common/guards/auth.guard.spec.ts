@@ -47,7 +47,11 @@ describe('AuthGuard', () => {
 
   it('should attach user to request and return true for valid token', async () => {
     const ctx = createMockContext('Bearer valid-token');
-    const mockUser = { id: 'user-1', displayName: 'Alice', authToken: 'valid-token' };
+    const mockUser = {
+      id: 'user-1',
+      displayName: 'Alice',
+      authToken: 'valid-token',
+    };
     (prismaService.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
 
     const result = await guard.canActivate(ctx);

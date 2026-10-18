@@ -10,7 +10,12 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { GroupsService } from './groups.service';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
@@ -32,10 +37,7 @@ export class GroupsController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new group (creator becomes ADMIN)' })
   @ApiResponse({ status: 201, description: 'Group created' })
-  async createGroup(
-    @CurrentUser() user: any,
-    @Body() dto: CreateGroupDto,
-  ) {
+  async createGroup(@CurrentUser() user: any, @Body() dto: CreateGroupDto) {
     return this.groupsService.createGroup(user.id, dto);
   }
 
@@ -52,10 +54,7 @@ export class GroupsController {
   @ApiResponse({ status: 201, description: 'Joined group successfully' })
   @ApiResponse({ status: 404, description: 'invalid_invite_code' })
   @ApiResponse({ status: 409, description: 'already_a_member' })
-  async joinGroup(
-    @CurrentUser() user: any,
-    @Body() dto: JoinGroupDto,
-  ) {
+  async joinGroup(@CurrentUser() user: any, @Body() dto: JoinGroupDto) {
     return this.groupsService.joinGroup(user.id, dto);
   }
 
@@ -64,10 +63,7 @@ export class GroupsController {
   @ApiOperation({ summary: 'Get group details' })
   @ApiResponse({ status: 200, description: 'Group details' })
   @ApiResponse({ status: 403, description: 'Not a group member' })
-  async getGroupDetails(
-    @Param('id') id: string,
-    @CurrentUser() user: any,
-  ) {
+  async getGroupDetails(@Param('id') id: string, @CurrentUser() user: any) {
     return this.groupsService.getGroupDetails(id, user.id);
   }
 
@@ -115,10 +111,7 @@ export class GroupsController {
   @ApiOperation({ summary: 'Leave a group voluntarily' })
   @ApiResponse({ status: 204, description: 'Left group' })
   @ApiResponse({ status: 400, description: 'sole_admin_cannot_leave' })
-  async leaveGroup(
-    @Param('id') id: string,
-    @CurrentUser() user: any,
-  ) {
+  async leaveGroup(@Param('id') id: string, @CurrentUser() user: any) {
     return this.groupsService.leaveGroup(id, user.id);
   }
 

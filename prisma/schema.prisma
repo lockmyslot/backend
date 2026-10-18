@@ -31,6 +31,19 @@ enum BookingStatus {
   CANCELLED
 }
 
+enum MaintenanceStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum RecurrenceType {
+  NONE
+  DAILY
+  WEEKLY
+}
+
 // ─── Models ───
 
 model User {
@@ -40,9 +53,11 @@ model User {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  memberships   GroupMember[]
-  bookings      Booking[]
-  createdGroups Group[]       @relation("GroupCreator")
+  memberships      GroupMember[]
+  bookings         Booking[]
+  createdGroups    Group[]           @relation("GroupCreator")
+  maintenanceTasks MaintenanceTask[] @relation("MaintenanceCreator")
+  assignedTasks    MaintenanceTask[] @relation("MaintenanceAssignee")
 
   @@map("users")
 }
@@ -55,10 +70,11 @@ model Group {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  createdBy User          @relation("GroupCreator", fields: [createdById], references: [id])
-  members   GroupMember[]
-  resources Resource[]
-  bookings  Booking[]
+  createdBy        User              @relation("GroupCreator", fields: [createdById], references: [id])
+  members          GroupMember[]
+  resources        Resource[]
+  bookings         Booking[]
+  maintenanceTasks MaintenanceTask[]
 
   @@map("groups")
 }
@@ -88,9 +104,10 @@ model Resource {
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
 
-  group        Group         @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  bookingRules BookingRule[]
-  bookings     Booking[]
+  group            Group             @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  bookingRules     BookingRule[]
+  bookings         Booking[]
+  maintenanceTasks MaintenanceTask[]
 
   @@map("resources")
 }
@@ -133,3 +150,34 @@ model Booking {
   @@index([userId, groupId])
   @@map("bookings")
 }
+
+model MaintenanceTask {
+  id             String            @id @default(uuid()) @db.Uuid
+  resourceId     String            @map("resource_id") @db.Uuid
+  groupId        String            @map("group_id") @db.Uuid
+  title          String
+  description    String?
+  status         MaintenanceStatus @default(SCHEDULED)
+  recurrenceType RecurrenceType    @default(NONE) @map("recurrence_type")
+  dayOfWeek      Int?              @map("day_of_week") // 0 = Sun, 1 = Mon, ..., 6 = Sat
+  startTimeOfDay String?           @map("start_time_of_day") // "HH:mm" UTC
+  endTimeOfDay   String?           @map("end_time_of_day")   // "HH:mm" UTC
+  startTime      DateTime          @map("start_time")
+  endTime        DateTime          @map("end_time")
+  createdById    String            @map("created_by") @db.Uuid
+  assignedToId   String?           @map("assigned_to") @db.Uuid
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  group      Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdBy  User     @relation("MaintenanceCreator", fields: [createdById], references: [id])
+  assignedTo User?    @relation("MaintenanceAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@index([resourceId, status])
+  @@index([groupId, status])
+  @@index([startTime, endTime])
+  @@index([assignedToId])
+  @@map("maintenance_tasks")
+}
+

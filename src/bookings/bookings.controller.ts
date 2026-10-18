@@ -11,7 +11,12 @@ import {
   HttpStatus,
   Req,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { BookingsService } from './bookings.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { ListBookingsDto } from './dto/list-bookings.dto';
@@ -30,7 +35,9 @@ export class BookingsController {
 
   @Post('resources/:resource_id/bookings')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a new booking after rule and capacity validation' })
+  @ApiOperation({
+    summary: 'Create a new booking after rule and capacity validation',
+  })
   @ApiResponse({ status: 201, description: 'Booking created' })
   @ApiResponse({ status: 400, description: 'booking_rule_violation' })
   @ApiResponse({ status: 409, description: 'slot_full' })
@@ -40,7 +47,12 @@ export class BookingsController {
     @CurrentUser() user: any,
     @Body() dto: CreateBookingDto,
   ) {
-    return this.bookingsService.createBooking(groupId, resourceId, user.id, dto);
+    return this.bookingsService.createBooking(
+      groupId,
+      resourceId,
+      user.id,
+      dto,
+    );
   }
 
   @Get('resources/:resource_id/bookings')
@@ -55,7 +67,9 @@ export class BookingsController {
   }
 
   @Get('resources/:resource_id/availability')
-  @ApiOperation({ summary: 'Get available time slots for a resource on a specific date' })
+  @ApiOperation({
+    summary: 'Get available time slots for a resource on a specific date',
+  })
   @ApiResponse({ status: 200, description: 'Time slots and user statistics' })
   async getAvailability(
     @Param('group_id') groupId: string,
@@ -63,7 +77,12 @@ export class BookingsController {
     @CurrentUser() user: any,
     @Query() query: AvailabilityQueryDto,
   ) {
-    return this.bookingsService.getAvailability(groupId, resourceId, user.id, query.date);
+    return this.bookingsService.getAvailability(
+      groupId,
+      resourceId,
+      user.id,
+      query.date,
+    );
   }
 
   @Get('my_bookings')
@@ -81,7 +100,10 @@ export class BookingsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Cancel a booking (Owner or ADMIN)' })
   @ApiResponse({ status: 204, description: 'Booking cancelled' })
-  @ApiResponse({ status: 400, description: 'booking_already_cancelled or cannot_cancel_past_booking' })
+  @ApiResponse({
+    status: 400,
+    description: 'booking_already_cancelled or cannot_cancel_past_booking',
+  })
   @ApiResponse({ status: 403, description: 'Not authorized' })
   async cancelBooking(
     @Param('group_id') groupId: string,

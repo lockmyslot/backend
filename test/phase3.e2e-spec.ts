@@ -120,7 +120,9 @@ describe('Phase 3 — Resources & Booking Rules (e2e)', () => {
         .send([{ day_scope: 'WEEKDAY', min_duration_minutes: 15 }])
         .expect(400);
 
-      expect(res.body.error.message).toContain('min_duration_minutes must be greater than or equal to resource slot_duration_minutes');
+      expect(res.body.error.message).toContain(
+        'min_duration_minutes must be greater than or equal to resource slot_duration_minutes',
+      );
     });
 
     it('PUT .../rules - successfully bulk upsert rules', async () => {

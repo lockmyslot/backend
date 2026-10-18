@@ -55,7 +55,9 @@ describe('AuthService', () => {
       updatedAt: new Date(),
     };
 
-    (prismaService.user.findUniqueOrThrow as jest.Mock).mockResolvedValue(mockUser);
+    (prismaService.user.findUniqueOrThrow as jest.Mock).mockResolvedValue(
+      mockUser,
+    );
 
     const result = await service.getProfile('user-uuid-1');
     expect(result).toHaveProperty('id', 'user-uuid-1');
@@ -74,7 +76,9 @@ describe('AuthService', () => {
 
     (prismaService.user.update as jest.Mock).mockResolvedValue(mockUser);
 
-    const result = await service.updateProfile('user-uuid-1', { displayName: 'Alice B.' });
+    const result = await service.updateProfile('user-uuid-1', {
+      displayName: 'Alice B.',
+    });
     expect(result).toHaveProperty('displayName', 'Alice B.');
   });
 });

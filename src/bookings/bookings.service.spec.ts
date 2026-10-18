@@ -53,6 +53,9 @@ describe('BookingsService', () => {
         create: jest.fn(),
         update: jest.fn(),
       },
+      maintenanceTask: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
       $transaction: jest.fn(),
     };
 
@@ -132,6 +135,9 @@ describe('BookingsService', () => {
       });
 
       const tx = {
+        maintenanceTask: {
+          findMany: jest.fn().mockResolvedValue([]),
+        },
         booking: {
           count: jest.fn().mockResolvedValue(2),
           create: jest.fn(),
@@ -157,6 +163,9 @@ describe('BookingsService', () => {
       });
 
       const tx = {
+        maintenanceTask: {
+          findMany: jest.fn().mockResolvedValue([]),
+        },
         booking: {
           count: jest.fn().mockResolvedValue(0),
           create: jest.fn().mockResolvedValue(mockBooking),

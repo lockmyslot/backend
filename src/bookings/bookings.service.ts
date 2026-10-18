@@ -10,7 +10,13 @@ import { RulesService } from './rules.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { ListBookingsDto } from './dto/list-bookings.dto';
 import { MyBookingsQueryDto } from './dto/my-bookings-query.dto';
-import { BookingStatus, GroupRole, DayScope } from '@prisma/client';
+import {
+  BookingStatus,
+  GroupRole,
+  DayScope,
+  MaintenanceStatus,
+} from '@prisma/client';
+import { isIntervalOverlappingMaintenance } from '../maintenance/maintenance.service';
 
 const DAY_SCOPE_MAP: Record<number, DayScope> = {
   0: DayScope.SUNDAY,
@@ -68,8 +74,32 @@ export class BookingsService {
       });
     }
 
-    // Atomic creation with capacity re-verification
+    // Atomic creation with capacity and maintenance re-verification
     return this.prisma.$transaction(async (tx) => {
+      const activeMaintenance = await tx.maintenanceTask.findMany({
+        where: {
+          resourceId: resource.id,
+          status: {
+            in: [MaintenanceStatus.SCHEDULED, MaintenanceStatus.IN_PROGRESS],
+          },
+          startTime: { lt: endTime },
+          endTime: { gt: startTime },
+        },
+      });
+
+      const isUnderMaintenance = activeMaintenance.some((task) =>
+        isIntervalOverlappingMaintenance(startTime, endTime, task),
+      );
+
+      if (isUnderMaintenance) {
+        throw new ConflictException({
+          message: 'resource_under_maintenance',
+          details: [
+            'resource is under scheduled maintenance during this time slot',
+          ],
+        });
+      }
+
       const overlapCount = await tx.booking.count({
         where: {
           resourceId: resource.id,
@@ -226,6 +256,18 @@ export class BookingsService {
       },
     });
 
+    // Active maintenance tasks for resource on target date
+    const dayMaintenanceTasks = await this.prisma.maintenanceTask.findMany({
+      where: {
+        resourceId,
+        status: {
+          in: [MaintenanceStatus.SCHEDULED, MaintenanceStatus.IN_PROGRESS],
+        },
+        startTime: { lte: endOfDay },
+        endTime: { gte: startOfDay },
+      },
+    });
+
     // User's bookings on target date
     const userDayBookings = dayBookings.filter((b) => b.userId === userId);
     const userHoursToday = userDayBookings.reduce(
@@ -250,7 +292,11 @@ export class BookingsService {
       capacity: number;
     }> = [];
 
-    for (let m = startMinutes; m + slotDuration <= endMinutes; m += slotDuration) {
+    for (
+      let m = startMinutes;
+      m + slotDuration <= endMinutes;
+      m += slotDuration
+    ) {
       const sH = Math.floor(m / 60)
         .toString()
         .padStart(2, '0');
@@ -269,9 +315,15 @@ export class BookingsService {
         (b) => b.startTime < slotEnd && b.endTime > slotStart,
       ).length;
 
+      const isMaintenance = dayMaintenanceTasks.some((task) =>
+        isIntervalOverlappingMaintenance(slotStart, slotEnd, task),
+      );
+
       let status = 'available';
 
-      if (bookedCount >= resource.capacity) {
+      if (isMaintenance) {
+        status = 'maintenance';
+      } else if (bookedCount >= resource.capacity) {
         status = 'full';
       } else if (rule?.cooldownMinutes && userDayBookings.length > 0) {
         const cooldownMs = rule.cooldownMinutes * 60 * 1000;

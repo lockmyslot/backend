@@ -43,7 +43,11 @@ export class ResourcesService {
     };
   }
 
-  async getResources(groupId: string, includeInactive = false, role?: GroupRole) {
+  async getResources(
+    groupId: string,
+    includeInactive = false,
+    role?: GroupRole,
+  ) {
     const allowInactive = includeInactive && role === GroupRole.ADMIN;
 
     const resources = await this.prisma.resource.findMany({
@@ -141,7 +145,9 @@ export class ResourcesService {
       where: { id: resourceId },
       data: {
         ...(dto.name !== undefined ? { name: dto.name } : {}),
-        ...(dto.description !== undefined ? { description: dto.description } : {}),
+        ...(dto.description !== undefined
+          ? { description: dto.description }
+          : {}),
         ...(dto.capacity !== undefined ? { capacity: dto.capacity } : {}),
         ...(dto.slotDurationMinutes !== undefined
           ? { slotDurationMinutes: dto.slotDurationMinutes }

@@ -33,10 +33,12 @@ async function bootstrap() {
     }
     if (req.query && typeof req.query === 'object') {
       const transformedQuery = transformKeysToCamelCase(req.query);
-      for (const key of Object.keys(req.query)) {
-        delete req.query[key];
-      }
-      Object.assign(req.query, transformedQuery);
+      Object.defineProperty(req, 'query', {
+        value: transformedQuery,
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      });
     }
     next();
   });

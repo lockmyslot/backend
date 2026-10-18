@@ -156,7 +156,10 @@ describe('Phase 2 — Auth & Groups (e2e)', () => {
         .set('Authorization', `Bearer ${charlieToken}`)
         .expect(400);
 
-      expect(res.body.error).toHaveProperty('message', 'sole_admin_cannot_leave');
+      expect(res.body.error).toHaveProperty(
+        'message',
+        'sole_admin_cannot_leave',
+      );
     });
 
     it('POST /api/v1/groups/:id/regenerate_invite - Charlie regenerates invite code', async () => {

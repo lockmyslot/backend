@@ -16,6 +16,8 @@ export class JoinGroupDto {
   @Matches(/^[A-Z0-9]{6}$/, {
     message: 'invite_code must be a 6-character uppercase alphanumeric string',
   })
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim().toUpperCase() : value))
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().toUpperCase() : value,
+  )
   inviteCode: string;
 }

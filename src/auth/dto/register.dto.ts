@@ -13,6 +13,6 @@ export class RegisterDto {
   @IsNotEmpty()
   @IsString()
   @Length(2, 50)
-  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   displayName: string;
 }

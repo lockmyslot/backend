@@ -2,6 +2,7 @@ import { AppModule } from './app.module';
 import { AuthModule } from './auth/auth.module';
 import { BookingRulesModule } from './booking-rules/booking-rules.module';
 import { BookingsModule } from './bookings/bookings.module';
+import { MaintenanceModule } from './maintenance/maintenance.module';
 import { GroupsModule } from './groups/groups.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ResourcesModule } from './resources/resources.module';
@@ -16,6 +17,7 @@ describe('Module declarations', () => {
     expect(GroupsModule).toBeDefined();
     expect(PrismaModule).toBeDefined();
     expect(ResourcesModule).toBeDefined();
+    expect(MaintenanceModule).toBeDefined();
   });
 
   it('should export the AuthenticatedRequest type', () => {

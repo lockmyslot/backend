@@ -195,15 +195,21 @@ describe('Phase 4 — Bookings & Rule Engine (e2e)', () => {
   it('GET .../availability - check slot statuses for Grace', async () => {
     const dateStr = getTomorrowDateStr();
     const res = await request(app.getHttpServer())
-      .get(`/api/v1/groups/${groupId}/resources/${resourceId}/availability?date=${dateStr}`)
+      .get(
+        `/api/v1/groups/${groupId}/resources/${resourceId}/availability?date=${dateStr}`,
+      )
       .set('Authorization', `Bearer ${graceToken}`)
       .expect(200);
 
     expect(res.body.data).toHaveProperty('slots');
     expect(res.body.data.user_stats.bookings_today).toBe(2);
 
-    const slot09 = res.body.data.slots.find((s: any) => s.start_time.includes('T09:00:00'));
-    const slot10 = res.body.data.slots.find((s: any) => s.start_time.includes('T10:00:00'));
+    const slot09 = res.body.data.slots.find((s: any) =>
+      s.start_time.includes('T09:00:00'),
+    );
+    const slot10 = res.body.data.slots.find((s: any) =>
+      s.start_time.includes('T10:00:00'),
+    );
     expect(slot09.status).toBe('full');
     expect(slot10.status).toBe('cooldown');
   });
@@ -211,7 +217,9 @@ describe('Phase 4 — Bookings & Rule Engine (e2e)', () => {
   it('GET .../my_bookings - Grace lists her bookings', async () => {
     const dateStr = getTomorrowDateStr();
     const res = await request(app.getHttpServer())
-      .get(`/api/v1/groups/${groupId}/my_bookings?from=${dateStr}&to=${dateStr}`)
+      .get(
+        `/api/v1/groups/${groupId}/my_bookings?from=${dateStr}&to=${dateStr}`,
+      )
       .set('Authorization', `Bearer ${graceToken}`)
       .expect(200);
 

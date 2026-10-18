@@ -42,9 +42,10 @@ export interface ResponseEnvelope<T> {
 }
 
 @Injectable()
-export class TransformInterceptor<T>
-  implements NestInterceptor<T, ResponseEnvelope<any>>
-{
+export class TransformInterceptor<T> implements NestInterceptor<
+  T,
+  ResponseEnvelope<any>
+> {
   intercept(
     context: ExecutionContext,
     next: CallHandler,
@@ -58,11 +59,7 @@ export class TransformInterceptor<T>
           };
         }
 
-        if (
-          typeof res === 'object' &&
-          res !== null &&
-          'data' in res
-        ) {
+        if (typeof res === 'object' && res !== null && 'data' in res) {
           return {
             data: transformKeysToSnakeCase(res.data),
             meta: transformKeysToSnakeCase(res.meta || {}),
