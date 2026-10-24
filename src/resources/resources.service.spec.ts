@@ -212,9 +212,18 @@ describe('ResourcesService', () => {
     const result = await service.updateResource('group-1', 'res-1', {
       name: 'Updated',
       capacity: 3,
+      isActive: false,
     });
     expect(result).toHaveProperty('name', 'Updated');
     expect(result).toHaveProperty('capacity', 3);
+    expect(prismaService.resource.update).toHaveBeenCalledWith({
+      where: { id: 'res-1' },
+      data: {
+        name: 'Updated',
+        capacity: 3,
+        isActive: false,
+      },
+    });
   });
 
   it('should throw NotFoundException if resource not found in deleteResource', async () => {

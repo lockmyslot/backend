@@ -152,6 +152,7 @@ export class ResourcesService {
         ...(dto.slotDurationMinutes !== undefined
           ? { slotDurationMinutes: dto.slotDurationMinutes }
           : {}),
+        ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
       },
     });
 
