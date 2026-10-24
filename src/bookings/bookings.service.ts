@@ -8,6 +8,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { RulesService } from './rules.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
+import { RescheduleBookingDto } from './dto/reschedule-booking.dto';
 import { ListBookingsDto } from './dto/list-bookings.dto';
 import { MyBookingsQueryDto } from './dto/my-bookings-query.dto';
 import {
@@ -207,6 +208,7 @@ export class BookingsService {
     resourceId: string,
     userId: string,
     dateStr: string,
+    excludeBookingId?: string,
   ) {
     const resource = await this.prisma.resource.findFirst({
       where: { id: resourceId, groupId },
@@ -252,6 +254,7 @@ export class BookingsService {
       where: {
         resourceId,
         status: BookingStatus.CONFIRMED,
+        ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
         startTime: { gte: startOfDay, lte: endOfDay },
       },
     });
@@ -401,6 +404,137 @@ export class BookingsService {
     });
   }
 
+  async rescheduleBooking(
+    groupId: string,
+    bookingId: string,
+    userId: string,
+    userRole: GroupRole,
+    dto: RescheduleBookingDto,
+  ) {
+    const booking = await this.prisma.booking.findFirst({
+      where: { id: bookingId, groupId },
+      include: { resource: true },
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Booking not found in this group');
+    }
+
+    if (booking.userId !== userId && userRole !== GroupRole.ADMIN) {
+      throw new ForbiddenException('Not authorized to reschedule this booking');
+    }
+
+    if (booking.status === BookingStatus.CANCELLED) {
+      throw new BadRequestException('cannot_reschedule_cancelled_booking');
+    }
+
+    if (booking.startTime.getTime() <= new Date().getTime()) {
+      throw new BadRequestException('cannot_reschedule_past_booking');
+    }
+
+    const resource = booking.resource;
+    if (!resource || !resource.isActive) {
+      throw new BadRequestException('resource is inactive');
+    }
+
+    const startTime = new Date(dto.startTime);
+    const endTime = new Date(dto.endTime);
+
+    // Validate rules, excluding this booking from counts/cooldown/overlap
+    const valResult = await this.rulesService.validate(
+      resource,
+      booking.userId,
+      groupId,
+      startTime,
+      endTime,
+      booking.id,
+    );
+
+    if (!valResult.allowed) {
+      if (valResult.isCapacityError) {
+        throw new ConflictException({
+          message: 'slot_full',
+          details: valResult.violations,
+        });
+      }
+      throw new BadRequestException({
+        message: 'booking_rule_violation',
+        details: valResult.violations,
+      });
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const activeMaintenance = await tx.maintenanceTask.findMany({
+        where: {
+          resourceId: resource.id,
+          status: {
+            in: [MaintenanceStatus.SCHEDULED, MaintenanceStatus.IN_PROGRESS],
+          },
+          startTime: { lt: endTime },
+          endTime: { gt: startTime },
+        },
+      });
+
+      const isUnderMaintenance = activeMaintenance.some((task) =>
+        isIntervalOverlappingMaintenance(startTime, endTime, task),
+      );
+
+      if (isUnderMaintenance) {
+        throw new ConflictException({
+          message: 'resource_under_maintenance',
+          details: [
+            'resource is under scheduled maintenance during this time slot',
+          ],
+        });
+      }
+
+      const overlapCount = await tx.booking.count({
+        where: {
+          resourceId: resource.id,
+          id: { not: booking.id },
+          status: BookingStatus.CONFIRMED,
+          startTime: { lt: endTime },
+          endTime: { gt: startTime },
+        },
+      });
+
+      if (overlapCount >= resource.capacity) {
+        throw new ConflictException({
+          message: 'slot_full',
+          details: [
+            `resource capacity reached for this time slot (capacity: ${resource.capacity}, booked: ${overlapCount})`,
+          ],
+        });
+      }
+
+      const updated = await tx.booking.update({
+        where: { id: booking.id },
+        data: {
+          startTime,
+          endTime,
+          status: BookingStatus.CONFIRMED,
+        },
+        include: {
+          resource: true,
+          user: true,
+        },
+      });
+
+      return {
+        id: updated.id,
+        resourceId: updated.resourceId,
+        resourceName: updated.resource.name,
+        userId: updated.userId,
+        userDisplayName: updated.user?.displayName,
+        groupId: updated.groupId,
+        startTime: updated.startTime,
+        endTime: updated.endTime,
+        status: updated.status,
+        createdAt: updated.createdAt,
+      };
+    });
+  }
+
   async getMyBookings(
     groupId: string,
     userId: string,
@@ -440,6 +574,8 @@ export class BookingsService {
       id: b.id,
       resourceId: b.resourceId,
       resourceName: b.resource.name,
+      userId: b.userId,
+      groupId: b.groupId,
       startTime: b.startTime,
       endTime: b.endTime,
       status: b.status,

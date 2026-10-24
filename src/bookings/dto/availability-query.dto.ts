@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, Matches } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
 
 export class AvailabilityQueryDto {
   @ApiProperty({
@@ -12,4 +12,13 @@ export class AvailabilityQueryDto {
     message: 'date must be in YYYY-MM-DD format',
   })
   date: string;
+
+  @ApiProperty({
+    description: 'Optional booking ID to exclude when calculating availability (e.g. during reschedule)',
+    required: false,
+    name: 'exclude_booking_id',
+  })
+  @IsOptional()
+  @IsString()
+  excludeBookingId?: string;
 }

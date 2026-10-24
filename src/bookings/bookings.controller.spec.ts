@@ -12,6 +12,7 @@ describe('BookingsController', () => {
       getAvailability: jest.fn(),
       getMyBookings: jest.fn(),
       cancelBooking: jest.fn(),
+      rescheduleBooking: jest.fn(),
     } as any;
     controller = new BookingsController(bookingsService);
   });
@@ -57,13 +58,14 @@ describe('BookingsController', () => {
       'group-1',
       'res-1',
       { id: 'user-1' } as any,
-      { date: '2026-08-11' },
+      { date: '2026-08-11', excludeBookingId: 'booking-1' },
     );
     expect(bookingsService.getAvailability).toHaveBeenCalledWith(
       'group-1',
       'res-1',
       'user-1',
       '2026-08-11',
+      'booking-1',
     );
     expect(result).toHaveProperty('slots');
   });
@@ -82,6 +84,33 @@ describe('BookingsController', () => {
       {},
     );
     expect(result).toEqual([]);
+  });
+
+  it('should delegate rescheduleBooking with role and dto', async () => {
+    const dto = {
+      startTime: '2026-08-12T10:00:00Z',
+      endTime: '2026-08-12T11:00:00Z',
+    };
+    bookingsService.rescheduleBooking.mockResolvedValue({
+      id: 'booking-1',
+      startTime: new Date('2026-08-12T10:00:00Z'),
+    } as any);
+
+    const result = await controller.rescheduleBooking(
+      'group-1',
+      'booking-1',
+      { id: 'user-1' } as any,
+      { groupMember: { role: 'ADMIN' } } as any,
+      dto,
+    );
+    expect(bookingsService.rescheduleBooking).toHaveBeenCalledWith(
+      'group-1',
+      'booking-1',
+      'user-1',
+      'ADMIN',
+      dto,
+    );
+    expect(result).toHaveProperty('id', 'booking-1');
   });
 
   it('should delegate cancelBooking with the group member role', async () => {

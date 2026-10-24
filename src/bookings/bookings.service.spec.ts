@@ -451,6 +451,170 @@ describe('BookingsService', () => {
     });
   });
 
+  describe('rescheduleBooking', () => {
+    const dto = {
+      startTime: '2099-08-12T10:00:00.000Z',
+      endTime: '2099-08-12T11:00:00.000Z',
+    };
+
+    it('should throw NotFoundException if booking not found', async () => {
+      (prismaService.booking.findFirst as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.rescheduleBooking(
+          'group-1',
+          'booking-1',
+          'user-1',
+          GroupRole.MEMBER,
+          dto,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw ForbiddenException if not owner and not admin', async () => {
+      (prismaService.booking.findFirst as jest.Mock).mockResolvedValue({
+        ...mockBooking,
+        userId: 'user-2',
+        startTime: new Date('2099-08-11T09:00:00.000Z'),
+        resource: mockResource,
+      });
+
+      await expect(
+        service.rescheduleBooking(
+          'group-1',
+          'booking-1',
+          'user-1',
+          GroupRole.MEMBER,
+          dto,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw BadRequestException if booking is cancelled', async () => {
+      (prismaService.booking.findFirst as jest.Mock).mockResolvedValue({
+        ...mockBooking,
+        status: BookingStatus.CANCELLED,
+        startTime: new Date('2099-08-11T09:00:00.000Z'),
+        resource: mockResource,
+      });
+
+      await expect(
+        service.rescheduleBooking(
+          'group-1',
+          'booking-1',
+          'user-1',
+          GroupRole.MEMBER,
+          dto,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException if booking is in the past', async () => {
+      (prismaService.booking.findFirst as jest.Mock).mockResolvedValue({
+        ...mockBooking,
+        startTime: new Date('2020-01-01T09:00:00.000Z'),
+        resource: mockResource,
+      });
+
+      await expect(
+        service.rescheduleBooking(
+          'group-1',
+          'booking-1',
+          'user-1',
+          GroupRole.MEMBER,
+          dto,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException if resource is inactive', async () => {
+      (prismaService.booking.findFirst as jest.Mock).mockResolvedValue({
+        ...mockBooking,
+        startTime: new Date('2099-08-11T09:00:00.000Z'),
+        resource: { ...mockResource, isActive: false },
+      });
+
+      await expect(
+        service.rescheduleBooking(
+          'group-1',
+          'booking-1',
+          'user-1',
+          GroupRole.MEMBER,
+          dto,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException when rule validation fails', async () => {
+      (prismaService.booking.findFirst as jest.Mock).mockResolvedValue({
+        ...mockBooking,
+        startTime: new Date('2099-08-11T09:00:00.000Z'),
+        resource: mockResource,
+      });
+      (rulesService.validate as jest.Mock).mockResolvedValue({
+        allowed: false,
+        violations: ['outside operating hours'],
+        isCapacityError: false,
+      });
+
+      await expect(
+        service.rescheduleBooking(
+          'group-1',
+          'booking-1',
+          'user-1',
+          GroupRole.MEMBER,
+          dto,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should successfully reschedule booking', async () => {
+      (prismaService.booking.findFirst as jest.Mock).mockResolvedValue({
+        ...mockBooking,
+        startTime: new Date('2099-08-11T09:00:00.000Z'),
+        resource: mockResource,
+      });
+      (rulesService.validate as jest.Mock).mockResolvedValue({
+        allowed: true,
+        violations: [],
+        isCapacityError: false,
+      });
+
+      const updatedBooking = {
+        ...mockBooking,
+        startTime: new Date(dto.startTime),
+        endTime: new Date(dto.endTime),
+        resource: mockResource,
+        user: { displayName: 'User One' },
+      };
+
+      const tx = {
+        maintenanceTask: {
+          findMany: jest.fn().mockResolvedValue([]),
+        },
+        booking: {
+          count: jest.fn().mockResolvedValue(0),
+          update: jest.fn().mockResolvedValue(updatedBooking),
+        },
+      };
+      (prismaService.$transaction as jest.Mock).mockImplementation((cb) =>
+        cb(tx),
+      );
+
+      const result = await service.rescheduleBooking(
+        'group-1',
+        'booking-1',
+        'user-1',
+        GroupRole.MEMBER,
+        dto,
+      );
+
+      expect(result).toHaveProperty('id', mockBooking.id);
+      expect(result.startTime).toEqual(new Date(dto.startTime));
+      expect(result.endTime).toEqual(new Date(dto.endTime));
+    });
+  });
+
   describe('getMyBookings', () => {
     it('should default to 30-day window and CONFIRMED status', async () => {
       (prismaService.booking.findMany as jest.Mock).mockResolvedValue([

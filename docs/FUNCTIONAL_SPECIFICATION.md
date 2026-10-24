@@ -191,6 +191,11 @@ flowchart TD
   - Members can cancel their own upcoming bookings.
   - Admins can cancel any booking in the group.
   - Past bookings cannot be cancelled.
+- **Rescheduling** (`PATCH /groups/:group_id/bookings/:id`):
+  - Members can reschedule their own upcoming bookings to an open time slot.
+  - Admins can reschedule any member's booking.
+  - Validates the new slot against booking rules, maintenance blocks, and resource capacity (excluding the booking itself from conflict checks).
+  - Past and cancelled bookings cannot be rescheduled.
 
 ### 4.6 Maintenance & Task Management System
 - **Purpose**: Allows facility managers and admins to take resources offline for inspections, repairs, or cleaning.
@@ -274,6 +279,7 @@ Base URL prefix: `/api/v1`
 | `GET` | `/groups/:group_id/resources/:resource_id/bookings` | Bearer | Member | List bookings for a resource (`?from=...&to=...`). |
 | `GET` | `/groups/:group_id/resources/:resource_id/availability` | Bearer | Member | Get available time slots and user limits for a date. |
 | `GET` | `/groups/:group_id/my_bookings` | Bearer | Member | List current user's bookings (`?status=CONFIRMED`). |
+| `PATCH`| `/groups/:group_id/bookings/:id` | Bearer | Owner/Admin | Reschedule booking to a new time slot. |
 | `DELETE`| `/groups/:group_id/bookings/:id` | Bearer | Owner/Admin | Cancel booking. |
 
 ### 6.6 Maintenance Tasks (`/groups/:group_id`)

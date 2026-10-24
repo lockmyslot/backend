@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
   Delete,
   Body,
   Param,
@@ -19,6 +20,7 @@ import {
 } from '@nestjs/swagger';
 import { BookingsService } from './bookings.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
+import { RescheduleBookingDto } from './dto/reschedule-booking.dto';
 import { ListBookingsDto } from './dto/list-bookings.dto';
 import { AvailabilityQueryDto } from './dto/availability-query.dto';
 import { MyBookingsQueryDto } from './dto/my-bookings-query.dto';
@@ -82,6 +84,7 @@ export class BookingsController {
       resourceId,
       user.id,
       query.date,
+      query.excludeBookingId,
     );
   }
 
@@ -94,6 +97,39 @@ export class BookingsController {
     @Query() query: MyBookingsQueryDto,
   ) {
     return this.bookingsService.getMyBookings(groupId, user.id, query);
+  }
+
+  @Patch(['bookings/:id', 'bookings/:id/reschedule'])
+  @Post('bookings/:id/reschedule')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reschedule an existing booking (Owner or ADMIN)' })
+  @ApiResponse({ status: 200, description: 'Booking rescheduled' })
+  @ApiResponse({
+    status: 400,
+    description:
+      'cannot_reschedule_cancelled_booking, cannot_reschedule_past_booking, or booking_rule_violation',
+  })
+  @ApiResponse({ status: 403, description: 'Not authorized' })
+  @ApiResponse({ status: 404, description: 'Booking not found' })
+  @ApiResponse({
+    status: 409,
+    description: 'slot_full or resource_under_maintenance',
+  })
+  async rescheduleBooking(
+    @Param('group_id') groupId: string,
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Req() req: any,
+    @Body() dto: RescheduleBookingDto,
+  ) {
+    const role = req?.groupMember?.role;
+    return this.bookingsService.rescheduleBooking(
+      groupId,
+      id,
+      user.id,
+      role,
+      dto,
+    );
   }
 
   @Delete('bookings/:id')

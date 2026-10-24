@@ -40,6 +40,7 @@ export class RulesService {
     groupId: string,
     startTime: Date,
     endTime: Date,
+    excludeBookingId?: string,
   ): Promise<ValidationResult> {
     const violations: string[] = [];
     const now = new Date();
@@ -165,6 +166,7 @@ export class RulesService {
             resourceId: resource.id,
             userId,
             status: BookingStatus.CONFIRMED,
+            ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
             startTime: {
               gte: startOfDay,
               lte: endOfDay,
@@ -186,6 +188,7 @@ export class RulesService {
             resourceId: resource.id,
             userId,
             status: BookingStatus.CONFIRMED,
+            ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
             startTime: {
               gte: startOfDay,
               lte: endOfDay,
@@ -215,6 +218,7 @@ export class RulesService {
             resourceId: resource.id,
             userId,
             status: BookingStatus.CONFIRMED,
+            ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
             endTime: {
               lte: startTime,
             },
@@ -229,6 +233,7 @@ export class RulesService {
             resourceId: resource.id,
             userId,
             status: BookingStatus.CONFIRMED,
+            ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
             startTime: {
               gte: endTime,
             },
@@ -269,6 +274,7 @@ export class RulesService {
       where: {
         resourceId: resource.id,
         status: BookingStatus.CONFIRMED,
+        ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
         startTime: {
           lt: endTime,
         },

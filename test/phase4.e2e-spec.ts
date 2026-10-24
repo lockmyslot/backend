@@ -11,9 +11,11 @@ describe('Phase 4 — Bookings & Rule Engine (e2e)', () => {
   let app: INestApplication;
   let frankToken: string; // admin
   let graceToken: string; // member
+  let heidiToken: string; // member
   let groupId: string;
   let resourceId: string;
   let graceBookingId1: string;
+  let graceBookingId2: string;
 
   const getTomorrowDateStr = () => {
     const d = new Date();
@@ -80,6 +82,18 @@ describe('Phase 4 — Bookings & Rule Engine (e2e)', () => {
     await request(app.getHttpServer())
       .post('/api/v1/groups/join')
       .set('Authorization', `Bearer ${graceToken}`)
+      .send({ invite_code: inviteCode });
+
+    // Register Heidi (Member)
+    const heidiReg = await request(app.getHttpServer())
+      .post('/api/v1/auth/register')
+      .send({ display_name: 'Heidi' });
+    heidiToken = heidiReg.body.data.auth_token;
+
+    // Heidi joins group
+    await request(app.getHttpServer())
+      .post('/api/v1/groups/join')
+      .set('Authorization', `Bearer ${heidiToken}`)
       .send({ invite_code: inviteCode });
 
     // Frank creates resource
@@ -176,6 +190,7 @@ describe('Phase 4 — Bookings & Rule Engine (e2e)', () => {
       .expect(201);
 
     expect(res.body.data.status).toBe('CONFIRMED');
+    graceBookingId2 = res.body.data.id;
   });
 
   it('POST .../bookings - Grace attempts 3rd booking -> 400 max_bookings_per_day', async () => {
@@ -246,5 +261,78 @@ describe('Phase 4 — Bookings & Rule Engine (e2e)', () => {
       .expect(201);
 
     expect(res.body.data.status).toBe('CONFIRMED');
+  });
+
+  it('PATCH .../bookings/:id - Heidi cannot reschedule Grace booking -> 403', async () => {
+    const dateStr = getTomorrowDateStr();
+    await request(app.getHttpServer())
+      .patch(`/api/v1/groups/${groupId}/bookings/${graceBookingId2}`)
+      .set('Authorization', `Bearer ${heidiToken}`)
+      .send({
+        start_time: `${dateStr}T14:00:00Z`,
+        end_time: `${dateStr}T15:00:00Z`,
+      })
+      .expect(403);
+  });
+
+  it('PATCH .../bookings/:id - Cannot reschedule cancelled booking -> 400', async () => {
+    const dateStr = getTomorrowDateStr();
+    const res = await request(app.getHttpServer())
+      .patch(`/api/v1/groups/${groupId}/bookings/${graceBookingId1}`)
+      .set('Authorization', `Bearer ${graceToken}`)
+      .send({
+        start_time: `${dateStr}T14:00:00Z`,
+        end_time: `${dateStr}T15:00:00Z`,
+      })
+      .expect(400);
+
+    expect(res.body.error.message).toContain('cannot_reschedule_cancelled_booking');
+  });
+
+  it('PATCH .../bookings/:id - Conflict with Frank booking -> 409 slot_full', async () => {
+    const dateStr = getTomorrowDateStr();
+    const res = await request(app.getHttpServer())
+      .patch(`/api/v1/groups/${groupId}/bookings/${graceBookingId2}`)
+      .set('Authorization', `Bearer ${graceToken}`)
+      .send({
+        start_time: `${dateStr}T09:00:00Z`,
+        end_time: `${dateStr}T10:00:00Z`,
+      })
+      .expect(409);
+
+    expect(res.body.error.message).toBe('slot_full');
+  });
+
+  it('PATCH .../bookings/:id - Grace reschedules booking to 14:00-15:00 -> 200', async () => {
+    const dateStr = getTomorrowDateStr();
+    const res = await request(app.getHttpServer())
+      .patch(`/api/v1/groups/${groupId}/bookings/${graceBookingId2}`)
+      .set('Authorization', `Bearer ${graceToken}`)
+      .send({
+        start_time: `${dateStr}T14:00:00Z`,
+        end_time: `${dateStr}T15:00:00Z`,
+      })
+      .expect(200);
+
+    expect(res.body.data.id).toBe(graceBookingId2);
+    expect(res.body.data.start_time).toBe(`${dateStr}T14:00:00.000Z`);
+    expect(res.body.data.end_time).toBe(`${dateStr}T15:00:00.000Z`);
+    expect(res.body.data.status).toBe('CONFIRMED');
+  });
+
+  it('PATCH .../bookings/:id - Admin Frank can reschedule Grace booking -> 200', async () => {
+    const dateStr = getTomorrowDateStr();
+    const res = await request(app.getHttpServer())
+      .patch(`/api/v1/groups/${groupId}/bookings/${graceBookingId2}`)
+      .set('Authorization', `Bearer ${frankToken}`)
+      .send({
+        start_time: `${dateStr}T15:00:00Z`,
+        end_time: `${dateStr}T16:00:00Z`,
+      })
+      .expect(200);
+
+    expect(res.body.data.id).toBe(graceBookingId2);
+    expect(res.body.data.start_time).toBe(`${dateStr}T15:00:00.000Z`);
+    expect(res.body.data.end_time).toBe(`${dateStr}T16:00:00.000Z`);
   });
 });
