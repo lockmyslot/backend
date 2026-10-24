@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, Length } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsNotEmpty, IsOptional, IsString, Length } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class RegisterDto {
@@ -15,4 +15,27 @@ export class RegisterDto {
   @Length(2, 50)
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   displayName: string;
+
+  @ApiPropertyOptional({
+    description: 'Optional username for logging in',
+    example: 'alice',
+    minLength: 3,
+    maxLength: 50,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(3, 50)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim().toLowerCase() : value))
+  username?: string;
+
+  @ApiPropertyOptional({
+    description: 'Optional password for logging in',
+    example: 'password123',
+    minLength: 4,
+    maxLength: 100,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(4, 100)
+  password?: string;
 }

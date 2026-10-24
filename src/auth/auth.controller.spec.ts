@@ -8,6 +8,7 @@ describe('AuthController', () => {
   beforeEach(() => {
     authService = {
       register: jest.fn(),
+      login: jest.fn(),
       getProfile: jest.fn(),
       updateProfile: jest.fn(),
     } as any;
@@ -21,6 +22,15 @@ describe('AuthController', () => {
     const result = await controller.register(dto);
     expect(authService.register).toHaveBeenCalledWith(dto);
     expect(result).toHaveProperty('id', 'user-1');
+  });
+
+  it('should delegate login to the service', async () => {
+    const dto = { username: 'alice', password: 'password123' };
+    authService.login.mockResolvedValue({ id: 'user-1', authToken: 'tok' } as any);
+
+    const result = await controller.login(dto);
+    expect(authService.login).toHaveBeenCalledWith(dto);
+    expect(result).toHaveProperty('authToken', 'tok');
   });
 
   it('should delegate getProfile using the current user id', async () => {

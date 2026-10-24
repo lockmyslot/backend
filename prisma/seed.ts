@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import * as bcrypt from 'bcryptjs';
 import { PrismaClient, GroupRole, DayScope, BookingStatus } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -15,9 +16,13 @@ async function main() {
   await prisma.user.deleteMany();
 
   // Create Users
+  const defaultPasswordHash = bcrypt.hashSync('password123', 10);
+
   const alice = await prisma.user.create({
     data: {
       id: '11111111-1111-4111-a111-111111111111',
+      username: 'alice',
+      passwordHash: defaultPasswordHash,
       displayName: 'Alice',
       authToken: '11111111-1111-1111-1111-111111111111',
     },
@@ -26,12 +31,14 @@ async function main() {
   const bob = await prisma.user.create({
     data: {
       id: '22222222-2222-4222-a222-222222222222',
+      username: 'bob',
+      passwordHash: defaultPasswordHash,
       displayName: 'Bob',
       authToken: '22222222-2222-2222-2222-222222222222',
     },
   });
 
-  console.log(`Created users: ${alice.displayName}, ${bob.displayName}`);
+  console.log(`Created users: ${alice.displayName} (@${alice.username}), ${bob.displayName} (@${bob.username})`);
 
   // Create Group
   const group = await prisma.group.create({
