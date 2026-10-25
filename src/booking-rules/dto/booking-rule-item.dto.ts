@@ -112,7 +112,7 @@ export class BookingRuleItemDto {
     name: 'available_until',
   })
   @IsOptional()
-  @Matches(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, {
+  @Matches(/^(([0-1][0-9]|2[0-3]):[0-5][0-9]|24:00)$/, {
     message: 'available_until must be in HH:mm format (24-hour)',
   })
   availableUntil?: string;
