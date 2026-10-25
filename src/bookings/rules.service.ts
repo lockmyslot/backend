@@ -114,15 +114,32 @@ export class RulesService {
     if (rule) {
       // ── 3. AVAILABILITY WINDOW ──
       if (rule.availableFrom && rule.availableUntil) {
-        const bookingStart = formatUTCTime(startTime);
-        const bookingEnd = formatUTCTime(endTime);
+        const [fromH, fromM] = rule.availableFrom.split(':').map(Number);
+        let [untilH, untilM] = rule.availableUntil.split(':').map(Number);
+        if (rule.availableUntil === '24:00') {
+          untilH = 24;
+          untilM = 0;
+        }
+        const availStart = fromH * 60 + fromM;
+        const availEnd = untilH * 60 + untilM;
 
-        if (bookingStart < rule.availableFrom) {
+        const bookingStartM =
+          startTime.getUTCHours() * 60 + startTime.getUTCMinutes();
+        let bookingEndM =
+          endTime.getUTCHours() * 60 + endTime.getUTCMinutes();
+        if (
+          bookingEndM === 0 &&
+          endTime.getUTCDate() !== startTime.getUTCDate()
+        ) {
+          bookingEndM = 1440;
+        }
+
+        if (bookingStartM < availStart) {
           violations.push(
             `starts before available_from (${rule.availableFrom})`,
           );
         }
-        if (bookingEnd > rule.availableUntil) {
+        if (bookingEndM > availEnd) {
           violations.push(
             `ends after available_until (${rule.availableUntil})`,
           );
