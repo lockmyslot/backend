@@ -24,6 +24,7 @@ export class ResourcesService {
         groupId,
         name: dto.name,
         description: dto.description,
+        icon: dto.icon ? dto.icon.trim() : null,
         capacity: dto.capacity,
         slotDurationMinutes: dto.slotDurationMinutes,
         isActive: true,
@@ -35,6 +36,7 @@ export class ResourcesService {
       groupId: resource.groupId,
       name: resource.name,
       description: resource.description,
+      icon: resource.icon,
       capacity: resource.capacity,
       slotDurationMinutes: resource.slotDurationMinutes,
       isActive: resource.isActive,
@@ -70,6 +72,7 @@ export class ResourcesService {
       groupId: r.groupId,
       name: r.name,
       description: r.description,
+      icon: r.icon,
       capacity: r.capacity,
       slotDurationMinutes: r.slotDurationMinutes,
       isActive: r.isActive,
@@ -99,6 +102,7 @@ export class ResourcesService {
       groupId: resource.groupId,
       name: resource.name,
       description: resource.description,
+      icon: resource.icon,
       capacity: resource.capacity,
       slotDurationMinutes: resource.slotDurationMinutes,
       isActive: resource.isActive,
@@ -148,6 +152,9 @@ export class ResourcesService {
         ...(dto.description !== undefined
           ? { description: dto.description }
           : {}),
+        ...(dto.icon !== undefined
+          ? { icon: dto.icon && dto.icon.trim() ? dto.icon.trim() : null }
+          : {}),
         ...(dto.capacity !== undefined ? { capacity: dto.capacity } : {}),
         ...(dto.slotDurationMinutes !== undefined
           ? { slotDurationMinutes: dto.slotDurationMinutes }
@@ -161,6 +168,7 @@ export class ResourcesService {
       groupId: updated.groupId,
       name: updated.name,
       description: updated.description,
+      icon: updated.icon,
       capacity: updated.capacity,
       slotDurationMinutes: updated.slotDurationMinutes,
       isActive: updated.isActive,

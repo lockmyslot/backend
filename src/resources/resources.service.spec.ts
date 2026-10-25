@@ -73,6 +73,43 @@ describe('ResourcesService', () => {
     expect(result).toHaveProperty('slotDurationMinutes', 60);
   });
 
+  it('should create a resource with icon', async () => {
+    const mockResource = {
+      id: 'res-wm',
+      groupId: 'group-1',
+      name: 'Laundry Machine 1',
+      description: 'Ground floor',
+      icon: 'washing_machine',
+      capacity: 1,
+      slotDurationMinutes: 30,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    (prismaService.resource.create as jest.Mock).mockResolvedValue(
+      mockResource,
+    );
+
+    const result = await service.createResource('group-1', {
+      name: 'Laundry Machine 1',
+      description: 'Ground floor',
+      icon: 'washing_machine',
+      capacity: 1,
+      slotDurationMinutes: 30,
+    });
+
+    expect(result).toHaveProperty('id', 'res-wm');
+    expect(result).toHaveProperty('icon', 'washing_machine');
+    expect(prismaService.resource.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          icon: 'washing_machine',
+        }),
+      }),
+    );
+  });
+
   it('should return active resources and compute rulesConfigured', async () => {
     const mockResources = [
       {
@@ -222,6 +259,45 @@ describe('ResourcesService', () => {
         name: 'Updated',
         capacity: 3,
         isActive: false,
+      },
+    });
+  });
+
+  it('should update resource icon and clear icon when empty', async () => {
+    (prismaService.resource.findFirst as jest.Mock).mockResolvedValue({
+      id: 'res-1',
+      groupId: 'group-1',
+    });
+    (prismaService.resource.update as jest.Mock).mockResolvedValue({
+      id: 'res-1',
+      groupId: 'group-1',
+      name: 'Computer Lab',
+      icon: 'computer',
+      capacity: 1,
+      slotDurationMinutes: 30,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await service.updateResource('group-1', 'res-1', {
+      icon: 'computer',
+    });
+    expect(prismaService.resource.update).toHaveBeenCalledWith({
+      where: { id: 'res-1' },
+      data: {
+        icon: 'computer',
+      },
+    });
+
+    // Clear icon test
+    await service.updateResource('group-1', 'res-1', {
+      icon: '',
+    });
+    expect(prismaService.resource.update).toHaveBeenCalledWith({
+      where: { id: 'res-1' },
+      data: {
+        icon: null,
       },
     });
   });

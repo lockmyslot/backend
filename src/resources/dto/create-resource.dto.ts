@@ -36,6 +36,18 @@ export class CreateResourceDto {
   description?: string;
 
   @ApiProperty({
+    description: 'Optional icon key for the resource (e.g. washing_machine, room, computer)',
+    example: 'washing_machine',
+    required: false,
+    maxLength: 50,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(0, 50)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  icon?: string;
+
+  @ApiProperty({
     description: 'Maximum concurrent bookings per slot',
     example: 1,
     minimum: 1,
