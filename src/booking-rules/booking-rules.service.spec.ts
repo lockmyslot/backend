@@ -68,6 +68,25 @@ describe('BookingRulesService', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
+  it('should accept availableUntil of 24:00 when availableFrom is earlier', async () => {
+    (prismaService.resource.findFirst as jest.Mock).mockResolvedValue({
+      id: 'res-1',
+      groupId: 'group-1',
+      slotDurationMinutes: 30,
+    });
+    (prismaService.bookingRule.findMany as jest.Mock).mockResolvedValue([]);
+
+    await expect(
+      service.upsertRules('group-1', 'res-1', [
+        {
+          dayScope: DayScope.WEEKDAY,
+          availableFrom: '08:00',
+          availableUntil: '24:00',
+        },
+      ]),
+    ).resolves.not.toThrow();
+  });
+
   it('should throw BadRequestException if minDurationMinutes < resource slotDurationMinutes', async () => {
     (prismaService.resource.findFirst as jest.Mock).mockResolvedValue({
       id: 'res-1',
