@@ -247,10 +247,11 @@ describe('Phase 2 — Auth & Groups (e2e)', () => {
         .expect(201);
 
       expect(inviteRes.body.data).toHaveProperty('username', 'eve_user');
-      expect(inviteRes.body.data).toHaveProperty('role', 'MEMBER');
+      expect(inviteRes.body.data).toHaveProperty('status', 'PENDING');
       expect(inviteRes.body.data).toHaveProperty('group_id', groupId);
+      const inviteId = inviteRes.body.data.id;
 
-      // 6. Admin cannot re-invite already member (409)
+      // 6. Admin cannot re-invite while pending (409)
       const conflictRes = await request(app.getHttpServer())
         .post(`/api/v1/groups/${groupId}/invite`)
         .set('Authorization', `Bearer ${charlieToken}`)
@@ -258,10 +259,35 @@ describe('Phase 2 — Auth & Groups (e2e)', () => {
         .expect(409);
       expect(conflictRes.body.error).toHaveProperty(
         'message',
-        'already_a_member',
+        'invite_already_pending',
       );
 
-      // 7. Verify Eve sees the group in her groups list
+      // 7. Eve sees the pending invite in her pending invites list
+      const eveInvitesRes = await request(app.getHttpServer())
+        .get('/api/v1/invites')
+        .set('Authorization', `Bearer ${eveToken}`)
+        .expect(200);
+      expect(Array.isArray(eveInvitesRes.body.data)).toBe(true);
+      expect(eveInvitesRes.body.data.length).toBe(1);
+      expect(eveInvitesRes.body.data[0]).toHaveProperty('id', inviteId);
+      expect(eveInvitesRes.body.data[0]).toHaveProperty('group_id', groupId);
+      expect(eveInvitesRes.body.data[0]).toHaveProperty('status', 'PENDING');
+
+      // 8. Eve accepts the invite
+      const acceptRes = await request(app.getHttpServer())
+        .post(`/api/v1/invites/${inviteId}/accept`)
+        .set('Authorization', `Bearer ${eveToken}`)
+        .expect(200);
+      expect(acceptRes.body.data).toHaveProperty('status', 'ACCEPTED');
+
+      // 9. Eve now sees 0 pending invites
+      const eveInvitesAfterRes = await request(app.getHttpServer())
+        .get('/api/v1/invites')
+        .set('Authorization', `Bearer ${eveToken}`)
+        .expect(200);
+      expect(eveInvitesAfterRes.body.data.length).toBe(0);
+
+      // 10. Verify Eve sees the group in her groups list
       const eveGroupsRes = await request(app.getHttpServer())
         .get('/api/v1/groups')
         .set('Authorization', `Bearer ${eveToken}`)
@@ -270,7 +296,7 @@ describe('Phase 2 — Auth & Groups (e2e)', () => {
         true,
       );
 
-      // 8. Verify members list includes Eve with username
+      // 11. Verify members list includes Eve with username
       const membersRes = await request(app.getHttpServer())
         .get(`/api/v1/groups/${groupId}/members`)
         .set('Authorization', `Bearer ${charlieToken}`)
@@ -280,6 +306,49 @@ describe('Phase 2 — Auth & Groups (e2e)', () => {
       );
       expect(eveMember).toBeDefined();
       expect(eveMember.role).toBe('MEMBER');
+
+      // 12. Admin inviting Eve now returns 409 already_a_member
+      const reInviteRes = await request(app.getHttpServer())
+        .post(`/api/v1/groups/${groupId}/invite`)
+        .set('Authorization', `Bearer ${charlieToken}`)
+        .send({ username: 'eve_user' })
+        .expect(409);
+      expect(reInviteRes.body.error).toHaveProperty(
+        'message',
+        'already_a_member',
+      );
+
+      // 13. Test declining an invite with a new user Frank
+      const frankRes = await request(app.getHttpServer())
+        .post('/api/v1/auth/register')
+        .send({
+          display_name: 'Frank',
+          username: 'frank_user',
+          password: 'password123',
+        })
+        .expect(201);
+      const frankToken = frankRes.body.data.auth_token;
+
+      const frankInviteRes = await request(app.getHttpServer())
+        .post(`/api/v1/groups/${groupId}/invite`)
+        .set('Authorization', `Bearer ${charlieToken}`)
+        .send({ username: 'frank_user' })
+        .expect(201);
+      const frankInviteId = frankInviteRes.body.data.id;
+
+      // Frank declines the invite
+      const declineRes = await request(app.getHttpServer())
+        .post(`/api/v1/invites/${frankInviteId}/decline`)
+        .set('Authorization', `Bearer ${frankToken}`)
+        .expect(200);
+      expect(declineRes.body.data).toHaveProperty('status', 'DECLINED');
+
+      // Frank sees 0 pending invites
+      const frankInvitesRes = await request(app.getHttpServer())
+        .get('/api/v1/invites')
+        .set('Authorization', `Bearer ${frankToken}`)
+        .expect(200);
+      expect(frankInvitesRes.body.data.length).toBe(0);
     });
   });
 });

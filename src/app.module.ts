@@ -7,6 +7,7 @@ import { ResourcesModule } from './resources/resources.module';
 import { BookingRulesModule } from './booking-rules/booking-rules.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
+import { InvitesModule } from './invites/invites.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { SnakeCaseMiddleware } from './common/middleware/snake-case.middleware';
@@ -23,6 +24,7 @@ import { SnakeCaseMiddleware } from './common/middleware/snake-case.middleware';
     BookingRulesModule,
     BookingsModule,
     MaintenanceModule,
+    InvitesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

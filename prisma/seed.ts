@@ -8,6 +8,7 @@ async function main() {
   console.log('Seeding database...');
 
   // Clean existing data
+  await prisma.groupInvite.deleteMany();
   await prisma.maintenanceTask.deleteMany();
   await prisma.booking.deleteMany();
   await prisma.bookingRule.deleteMany();

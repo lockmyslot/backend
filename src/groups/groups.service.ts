@@ -10,7 +10,7 @@ import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { JoinGroupDto } from './dto/join-group.dto';
 import { InviteMemberDto } from './dto/invite-member.dto';
-import { GroupRole, BookingStatus } from '@prisma/client';
+import { GroupRole, BookingStatus, InviteStatus } from '@prisma/client';
 
 function generateInviteCode(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -305,22 +305,50 @@ export class GroupsService {
       throw new ConflictException('already_a_member');
     }
 
-    const newMember = await this.prisma.groupMember.create({
-      data: {
-        groupId,
-        userId: targetUser.id,
-        role: GroupRole.MEMBER,
+    const existingInvite = await this.prisma.groupInvite.findUnique({
+      where: {
+        groupId_invitedUserId: {
+          groupId,
+          invitedUserId: targetUser.id,
+        },
       },
     });
 
+    if (existingInvite && existingInvite.status === InviteStatus.PENDING) {
+      throw new ConflictException('invite_already_pending');
+    }
+
+    let invite;
+    if (existingInvite) {
+      invite = await this.prisma.groupInvite.update({
+        where: { id: existingInvite.id },
+        data: {
+          status: InviteStatus.PENDING,
+          invitedById: currentUserId,
+        },
+      });
+    } else {
+      invite = await this.prisma.groupInvite.create({
+        data: {
+          groupId,
+          invitedUserId: targetUser.id,
+          invitedById: currentUserId,
+          status: InviteStatus.PENDING,
+        },
+      });
+    }
+
     return {
-      id: targetUser.id,
-      userId: targetUser.id,
+      id: invite.id,
+      inviteId: invite.id,
       groupId,
+      groupName: group.name,
+      userId: targetUser.id,
+      invitedUserId: targetUser.id,
       displayName: targetUser.displayName,
       username: targetUser.username,
-      role: newMember.role,
-      joinedAt: newMember.joinedAt,
+      status: invite.status,
+      createdAt: invite.createdAt,
     };
   }
 

@@ -44,6 +44,12 @@ enum RecurrenceType {
   WEEKLY
 }
 
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
 // ─── Models ───
 
 model User {
@@ -60,6 +66,8 @@ model User {
   createdGroups    Group[]           @relation("GroupCreator")
   maintenanceTasks MaintenanceTask[] @relation("MaintenanceCreator")
   assignedTasks    MaintenanceTask[] @relation("MaintenanceAssignee")
+  receivedInvites  GroupInvite[]     @relation("ReceivedInvites")
+  sentInvites      GroupInvite[]     @relation("SentInvites")
 
   @@map("users")
 }
@@ -77,8 +85,27 @@ model Group {
   resources        Resource[]
   bookings         Booking[]
   maintenanceTasks MaintenanceTask[]
+  invites          GroupInvite[]
 
   @@map("groups")
+}
+
+model GroupInvite {
+  id            String       @id @default(uuid()) @db.Uuid
+  groupId       String       @map("group_id") @db.Uuid
+  invitedUserId String       @map("invited_user_id") @db.Uuid
+  invitedById   String       @map("invited_by_id") @db.Uuid
+  status        InviteStatus @default(PENDING)
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  group       Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  invitedUser User  @relation("ReceivedInvites", fields: [invitedUserId], references: [id], onDelete: Cascade)
+  invitedBy   User  @relation("SentInvites", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, invitedUserId])
+  @@index([invitedUserId, status])
+  @@map("group_invites")
 }
 
 model GroupMember {

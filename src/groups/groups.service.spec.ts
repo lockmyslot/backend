@@ -32,6 +32,11 @@ describe('GroupsService', () => {
       booking: {
         updateMany: jest.fn(),
       },
+      groupInvite: {
+        findUnique: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+      },
       user: {
         findFirst: jest.fn(),
         findUnique: jest.fn(),
@@ -460,9 +465,10 @@ describe('GroupsService', () => {
       ).rejects.toThrow(ConflictException);
     });
 
-    it('should add the user to group successfully', async () => {
+    it('should create pending invite successfully', async () => {
       (prismaService.group.findUnique as jest.Mock).mockResolvedValue({
         id: 'group-1',
+        name: 'Group 1',
       });
       (prismaService.user.findFirst as jest.Mock).mockResolvedValue({
         id: 'user-2',
@@ -472,12 +478,16 @@ describe('GroupsService', () => {
       (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue(
         null,
       );
-      (prismaService.groupMember.create as jest.Mock).mockResolvedValue({
-        id: 'member-new',
+      (prismaService.groupInvite.findUnique as jest.Mock).mockResolvedValue(
+        null,
+      );
+      (prismaService.groupInvite.create as jest.Mock).mockResolvedValue({
+        id: 'invite-1',
         groupId: 'group-1',
-        userId: 'user-2',
-        role: GroupRole.MEMBER,
-        joinedAt: new Date('2026-10-25T12:00:00Z'),
+        invitedUserId: 'user-2',
+        invitedById: 'admin-1',
+        status: 'PENDING',
+        createdAt: new Date('2026-10-25T12:00:00Z'),
       });
 
       const result = await service.inviteMemberByUsername(
@@ -491,21 +501,25 @@ describe('GroupsService', () => {
           username: { equals: 'bob', mode: 'insensitive' },
         },
       });
-      expect(prismaService.groupMember.create).toHaveBeenCalledWith({
+      expect(prismaService.groupInvite.create).toHaveBeenCalledWith({
         data: {
           groupId: 'group-1',
-          userId: 'user-2',
-          role: GroupRole.MEMBER,
+          invitedUserId: 'user-2',
+          invitedById: 'admin-1',
+          status: 'PENDING',
         },
       });
       expect(result).toEqual({
-        id: 'user-2',
-        userId: 'user-2',
+        id: 'invite-1',
+        inviteId: 'invite-1',
         groupId: 'group-1',
+        groupName: 'Group 1',
+        userId: 'user-2',
+        invitedUserId: 'user-2',
         displayName: 'Bob Builder',
         username: 'bob',
-        role: GroupRole.MEMBER,
-        joinedAt: new Date('2026-10-25T12:00:00Z'),
+        status: 'PENDING',
+        createdAt: new Date('2026-10-25T12:00:00Z'),
       });
     });
   });
