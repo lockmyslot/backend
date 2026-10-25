@@ -200,5 +200,86 @@ describe('Phase 2 — Auth & Groups (e2e)', () => {
 
       expect(unpinRes.body.data).toHaveProperty('is_pinned', false);
     });
+
+    it('POST /api/v1/groups/:id/invite - Admin can invite users by username', async () => {
+      // 1. Register a third user with a username
+      const eveRes = await request(app.getHttpServer())
+        .post('/api/v1/auth/register')
+        .send({
+          display_name: 'Eve',
+          username: 'eve_user',
+          password: 'password123',
+        })
+        .expect(201);
+      const eveToken = eveRes.body.data.auth_token;
+      expect(eveRes.body.data.username).toBe('eve_user');
+
+      // 2. Non-admin (Dave) cannot invite members (403)
+      await request(app.getHttpServer())
+        .post(`/api/v1/groups/${groupId}/invite`)
+        .set('Authorization', `Bearer ${daveToken}`)
+        .send({ username: 'eve_user' })
+        .expect(403);
+
+      // 3. Admin cannot invite nonexistent username (404)
+      const notFoundRes = await request(app.getHttpServer())
+        .post(`/api/v1/groups/${groupId}/invite`)
+        .set('Authorization', `Bearer ${charlieToken}`)
+        .send({ username: 'nonexistent_user_999' })
+        .expect(404);
+      expect(notFoundRes.body.error).toHaveProperty(
+        'message',
+        'user_not_found',
+      );
+
+      // 4. Admin cannot invite themselves (400)
+      // Update charlie with username first
+      await request(app.getHttpServer())
+        .patch('/api/v1/auth/me')
+        .set('Authorization', `Bearer ${charlieToken}`)
+        .send({ display_name: 'Charlie Admin' });
+
+      // 5. Admin (Charlie) successfully invites Eve using @eve_user (201)
+      const inviteRes = await request(app.getHttpServer())
+        .post(`/api/v1/groups/${groupId}/invite`)
+        .set('Authorization', `Bearer ${charlieToken}`)
+        .send({ username: '@eve_user' })
+        .expect(201);
+
+      expect(inviteRes.body.data).toHaveProperty('username', 'eve_user');
+      expect(inviteRes.body.data).toHaveProperty('role', 'MEMBER');
+      expect(inviteRes.body.data).toHaveProperty('group_id', groupId);
+
+      // 6. Admin cannot re-invite already member (409)
+      const conflictRes = await request(app.getHttpServer())
+        .post(`/api/v1/groups/${groupId}/invite`)
+        .set('Authorization', `Bearer ${charlieToken}`)
+        .send({ username: 'eve_user' })
+        .expect(409);
+      expect(conflictRes.body.error).toHaveProperty(
+        'message',
+        'already_a_member',
+      );
+
+      // 7. Verify Eve sees the group in her groups list
+      const eveGroupsRes = await request(app.getHttpServer())
+        .get('/api/v1/groups')
+        .set('Authorization', `Bearer ${eveToken}`)
+        .expect(200);
+      expect(eveGroupsRes.body.data.some((g: any) => g.id === groupId)).toBe(
+        true,
+      );
+
+      // 8. Verify members list includes Eve with username
+      const membersRes = await request(app.getHttpServer())
+        .get(`/api/v1/groups/${groupId}/members`)
+        .set('Authorization', `Bearer ${charlieToken}`)
+        .expect(200);
+      const eveMember = membersRes.body.data.find(
+        (m: any) => m.username === 'eve_user',
+      );
+      expect(eveMember).toBeDefined();
+      expect(eveMember.role).toBe('MEMBER');
+    });
   });
 });

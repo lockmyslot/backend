@@ -17,6 +17,7 @@ describe('GroupsController', () => {
       removeMember: jest.fn(),
       leaveGroup: jest.fn(),
       regenerateInviteCode: jest.fn(),
+      inviteMemberByUsername: jest.fn(),
     } as any;
     controller = new GroupsController(groupsService);
   });
@@ -78,10 +79,21 @@ describe('GroupsController', () => {
   });
 
   it('should delegate togglePinGroup', async () => {
-    groupsService.togglePinGroup.mockResolvedValue({ id: 'group-1', isPinned: true });
+    groupsService.togglePinGroup.mockResolvedValue({
+      id: 'group-1',
+      isPinned: true,
+    });
 
-    const result = await controller.togglePinGroup('group-1', { id: 'user-1' } as any, { isPinned: true });
-    expect(groupsService.togglePinGroup).toHaveBeenCalledWith('group-1', 'user-1', true);
+    const result = await controller.togglePinGroup(
+      'group-1',
+      { id: 'user-1' } as any,
+      { isPinned: true },
+    );
+    expect(groupsService.togglePinGroup).toHaveBeenCalledWith(
+      'group-1',
+      'user-1',
+      true,
+    );
     expect(result).toEqual({ id: 'group-1', isPinned: true });
   });
 
@@ -119,5 +131,38 @@ describe('GroupsController', () => {
     const result = await controller.regenerateInviteCode('group-1');
     expect(groupsService.regenerateInviteCode).toHaveBeenCalledWith('group-1');
     expect(result).toHaveProperty('inviteCode', 'NEW');
+  });
+
+  it('should delegate inviteMember and addMember', async () => {
+    const dto = { username: 'bob' };
+    const memberData = {
+      id: 'user-2',
+      userId: 'user-2',
+      groupId: 'group-1',
+      displayName: 'Bob',
+      username: 'bob',
+      role: 'MEMBER',
+      joinedAt: new Date(),
+    };
+    groupsService.inviteMemberByUsername.mockResolvedValue(memberData as any);
+
+    const inviteResult = await controller.inviteMember(
+      'group-1',
+      { id: 'user-1' } as any,
+      dto,
+    );
+    expect(groupsService.inviteMemberByUsername).toHaveBeenCalledWith(
+      'group-1',
+      'user-1',
+      dto,
+    );
+    expect(inviteResult).toEqual(memberData);
+
+    const addResult = await controller.addMember(
+      'group-1',
+      { id: 'user-1' } as any,
+      dto,
+    );
+    expect(addResult).toEqual(memberData);
   });
 });

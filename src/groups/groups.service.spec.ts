@@ -32,6 +32,10 @@ describe('GroupsService', () => {
       booking: {
         updateMany: jest.fn(),
       },
+      user: {
+        findFirst: jest.fn(),
+        findUnique: jest.fn(),
+      },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -327,11 +331,13 @@ describe('GroupsService', () => {
 
   describe('togglePinGroup', () => {
     it('should throw NotFoundException if membership does not exist', async () => {
-      (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue(null);
+      (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue(
+        null,
+      );
 
-      await expect(
-        service.togglePinGroup('group-1', 'user-1'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.togglePinGroup('group-1', 'user-1')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should toggle pin status when isPinned is not provided', async () => {
@@ -390,6 +396,117 @@ describe('GroupsService', () => {
         },
       });
       expect(result).toEqual({ id: 'group-1', isPinned: false });
+    });
+  });
+
+  describe('inviteMemberByUsername', () => {
+    it('should throw NotFoundException if group does not exist', async () => {
+      (prismaService.group.findUnique as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.inviteMemberByUsername('group-1', 'admin-1', {
+          username: 'charlie',
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw NotFoundException if user with username does not exist', async () => {
+      (prismaService.group.findUnique as jest.Mock).mockResolvedValue({
+        id: 'group-1',
+      });
+      (prismaService.user.findFirst as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.inviteMemberByUsername('group-1', 'admin-1', {
+          username: 'nonexistent',
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw BadRequestException if admin tries to invite themselves', async () => {
+      (prismaService.group.findUnique as jest.Mock).mockResolvedValue({
+        id: 'group-1',
+      });
+      (prismaService.user.findFirst as jest.Mock).mockResolvedValue({
+        id: 'admin-1',
+        username: 'admin',
+      });
+
+      await expect(
+        service.inviteMemberByUsername('group-1', 'admin-1', {
+          username: 'admin',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw ConflictException if user is already a member', async () => {
+      (prismaService.group.findUnique as jest.Mock).mockResolvedValue({
+        id: 'group-1',
+      });
+      (prismaService.user.findFirst as jest.Mock).mockResolvedValue({
+        id: 'user-2',
+        username: 'bob',
+      });
+      (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue({
+        id: 'member-2',
+        groupId: 'group-1',
+        userId: 'user-2',
+      });
+
+      await expect(
+        service.inviteMemberByUsername('group-1', 'admin-1', {
+          username: 'bob',
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('should add the user to group successfully', async () => {
+      (prismaService.group.findUnique as jest.Mock).mockResolvedValue({
+        id: 'group-1',
+      });
+      (prismaService.user.findFirst as jest.Mock).mockResolvedValue({
+        id: 'user-2',
+        username: 'bob',
+        displayName: 'Bob Builder',
+      });
+      (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue(
+        null,
+      );
+      (prismaService.groupMember.create as jest.Mock).mockResolvedValue({
+        id: 'member-new',
+        groupId: 'group-1',
+        userId: 'user-2',
+        role: GroupRole.MEMBER,
+        joinedAt: new Date('2026-10-25T12:00:00Z'),
+      });
+
+      const result = await service.inviteMemberByUsername(
+        'group-1',
+        'admin-1',
+        { username: '@bob' },
+      );
+
+      expect(prismaService.user.findFirst).toHaveBeenCalledWith({
+        where: {
+          username: { equals: 'bob', mode: 'insensitive' },
+        },
+      });
+      expect(prismaService.groupMember.create).toHaveBeenCalledWith({
+        data: {
+          groupId: 'group-1',
+          userId: 'user-2',
+          role: GroupRole.MEMBER,
+        },
+      });
+      expect(result).toEqual({
+        id: 'user-2',
+        userId: 'user-2',
+        groupId: 'group-1',
+        displayName: 'Bob Builder',
+        username: 'bob',
+        role: GroupRole.MEMBER,
+        joinedAt: new Date('2026-10-25T12:00:00Z'),
+      });
     });
   });
 });

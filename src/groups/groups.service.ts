@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { JoinGroupDto } from './dto/join-group.dto';
+import { InviteMemberDto } from './dto/invite-member.dto';
 import { GroupRole, BookingStatus } from '@prisma/client';
 
 function generateInviteCode(): string {
@@ -85,10 +86,7 @@ export class GroupsService {
           },
         },
       },
-      orderBy: [
-        { isPinned: 'desc' },
-        { joinedAt: 'desc' },
-      ],
+      orderBy: [{ isPinned: 'desc' }, { joinedAt: 'desc' }],
     });
 
     return memberships.map((m) => {
@@ -256,9 +254,74 @@ export class GroupsService {
     return members.map((m) => ({
       id: m.user.id,
       displayName: m.user.displayName,
+      username: m.user.username,
       role: m.role,
       joinedAt: m.joinedAt,
     }));
+  }
+
+  async inviteMemberByUsername(
+    groupId: string,
+    currentUserId: string,
+    dto: InviteMemberDto,
+  ) {
+    const normalizedUsername = dto.username
+      .trim()
+      .replace(/^@/, '')
+      .toLowerCase();
+
+    const group = await this.prisma.group.findUnique({
+      where: { id: groupId },
+    });
+
+    if (!group) {
+      throw new NotFoundException('group_not_found');
+    }
+
+    const targetUser = await this.prisma.user.findFirst({
+      where: {
+        username: { equals: normalizedUsername, mode: 'insensitive' },
+      },
+    });
+
+    if (!targetUser) {
+      throw new NotFoundException('user_not_found');
+    }
+
+    if (targetUser.id === currentUserId) {
+      throw new BadRequestException('cannot_invite_self');
+    }
+
+    const existingMember = await this.prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId,
+          userId: targetUser.id,
+        },
+      },
+    });
+
+    if (existingMember) {
+      throw new ConflictException('already_a_member');
+    }
+
+    const newMember = await this.prisma.groupMember.create({
+      data: {
+        groupId,
+        userId: targetUser.id,
+        role: GroupRole.MEMBER,
+      },
+    });
+
+    return {
+      id: targetUser.id,
+      userId: targetUser.id,
+      groupId,
+      displayName: targetUser.displayName,
+      username: targetUser.username,
+      role: newMember.role,
+      joinedAt: newMember.joinedAt,
+    };
   }
 
   async removeMember(

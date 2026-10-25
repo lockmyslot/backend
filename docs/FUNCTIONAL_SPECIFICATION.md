@@ -142,10 +142,11 @@ erDiagram
 ### 4.2 Group Management & Multi-Tenancy
 - **Isolation**: Resources, rules, bookings, and maintenance tasks are strictly scoped to their group.
 - **Group Creation**: Any authenticated user can create a group; the creator is automatically assigned the `ADMIN` role.
-- **Invite Codes**:
+- **Invite Codes & Username Invites**:
   - Automatically generated 6-character alphanumeric code upon creation.
   - Admins can regenerate the invite code at any time (`POST /api/v1/groups/:id/regenerate_invite`), immediately invalidating old codes.
-- **Joining Groups**: Users join by submitting an active invite code (`POST /api/v1/groups/join`).
+  - Admins can invite registered users directly by their username (`POST /api/v1/groups/:id/invite`), adding them to the group as members immediately.
+- **Joining Groups**: Users join by submitting an active invite code (`POST /api/v1/groups/join`) or being invited by an admin via username.
 - **Membership & Roles**:
   - `ADMIN`: Has full privileges (edit group, manage members, create/update/delete resources, configure booking rules, schedule maintenance, cancel any member's bookings).
   - `MEMBER`: Can view resources, check availability, book slots, view group maintenance, and manage their own bookings.
@@ -256,6 +257,7 @@ Base URL prefix: `/api/v1`
 | `DELETE`| `/groups/:id/members/:user_id` | Bearer | Admin | Remove a member from the group. |
 | `POST` | `/groups/:id/leave` | Bearer | Member | Voluntarily leave group (sole admin protected). |
 | `POST` | `/groups/:id/regenerate_invite`| Bearer | Admin | Regenerate a fresh invite code. |
+| `POST` | `/groups/:id/invite` | Bearer | Admin | Invite a user to the group by `username`. |
 
 ### 6.3 Resources (`/groups/:group_id/resources`)
 | Method | Path | Auth | Role | Description |

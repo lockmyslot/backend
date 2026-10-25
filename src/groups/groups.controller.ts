@@ -21,6 +21,7 @@ import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { JoinGroupDto } from './dto/join-group.dto';
 import { PinGroupDto } from './dto/pin-group.dto';
+import { InviteMemberDto } from './dto/invite-member.dto';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { GroupMemberGuard } from './guards/group-member.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -100,6 +101,42 @@ export class GroupsController {
   @ApiResponse({ status: 200, description: 'List of members' })
   async getMembers(@Param('id') id: string) {
     return this.groupsService.getMembers(id);
+  }
+
+  @Post(':id/invite')
+  @UseGuards(GroupMemberGuard)
+  @Roles(GroupRole.ADMIN)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Invite a user to the group by username (ADMIN only)',
+  })
+  @ApiResponse({ status: 201, description: 'User added to group successfully' })
+  @ApiResponse({ status: 400, description: 'cannot_invite_self' })
+  @ApiResponse({ status: 404, description: 'user_not_found' })
+  @ApiResponse({ status: 409, description: 'already_a_member' })
+  async inviteMember(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body() dto: InviteMemberDto,
+  ) {
+    return this.groupsService.inviteMemberByUsername(id, user.id, dto);
+  }
+
+  @Post(':id/members')
+  @UseGuards(GroupMemberGuard)
+  @Roles(GroupRole.ADMIN)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Add a user to the group by username (ADMIN only)' })
+  @ApiResponse({ status: 201, description: 'User added to group successfully' })
+  @ApiResponse({ status: 400, description: 'cannot_invite_self' })
+  @ApiResponse({ status: 404, description: 'user_not_found' })
+  @ApiResponse({ status: 409, description: 'already_a_member' })
+  async addMember(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body() dto: InviteMemberDto,
+  ) {
+    return this.groupsService.inviteMemberByUsername(id, user.id, dto);
   }
 
   @Delete(':id/members/:user_id')
