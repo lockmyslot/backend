@@ -171,5 +171,34 @@ describe('Phase 2 — Auth & Groups (e2e)', () => {
       expect(res.body.data).toHaveProperty('invite_code');
       expect(res.body.data.invite_code).not.toBe(inviteCode);
     });
+
+    it('PATCH /api/v1/groups/:id/pin - Dave pins the group to top', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/api/v1/groups/${groupId}/pin`)
+        .set('Authorization', `Bearer ${daveToken}`)
+        .send({ is_pinned: true })
+        .expect(200);
+
+      expect(res.body.data).toHaveProperty('id', groupId);
+      expect(res.body.data).toHaveProperty('is_pinned', true);
+
+      // Verify in Dave's group list
+      const listRes = await request(app.getHttpServer())
+        .get('/api/v1/groups')
+        .set('Authorization', `Bearer ${daveToken}`)
+        .expect(200);
+
+      expect(listRes.body.data[0]).toHaveProperty('id', groupId);
+      expect(listRes.body.data[0]).toHaveProperty('is_pinned', true);
+
+      // Dave unpins the group
+      const unpinRes = await request(app.getHttpServer())
+        .patch(`/api/v1/groups/${groupId}/pin`)
+        .set('Authorization', `Bearer ${daveToken}`)
+        .send({ is_pinned: false })
+        .expect(200);
+
+      expect(unpinRes.body.data).toHaveProperty('is_pinned', false);
+    });
   });
 });

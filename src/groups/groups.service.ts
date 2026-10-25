@@ -69,6 +69,7 @@ export class GroupsService {
       role: GroupRole.ADMIN,
       memberCount: group._count.members,
       createdAt: group.createdAt,
+      isPinned: false,
     };
   }
 
@@ -84,9 +85,10 @@ export class GroupsService {
           },
         },
       },
-      orderBy: {
-        joinedAt: 'desc',
-      },
+      orderBy: [
+        { isPinned: 'desc' },
+        { joinedAt: 'desc' },
+      ],
     });
 
     return memberships.map((m) => {
@@ -98,6 +100,7 @@ export class GroupsService {
         ...(isAdmin ? { inviteCode: m.group.inviteCode } : {}),
         memberCount: m.group._count.members,
         createdAt: m.group.createdAt,
+        isPinned: m.isPinned,
       };
     });
   }
@@ -133,6 +136,41 @@ export class GroupsService {
       ...(isAdmin ? { inviteCode: group.inviteCode } : {}),
       memberCount: group._count.members,
       createdAt: group.createdAt,
+      isPinned: membership.isPinned,
+    };
+  }
+
+  async togglePinGroup(groupId: string, userId: string, isPinned?: boolean) {
+    const membership = await this.prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId,
+          userId,
+        },
+      },
+    });
+
+    if (!membership) {
+      throw new NotFoundException('Group membership not found');
+    }
+
+    const nextPinned = isPinned !== undefined ? isPinned : !membership.isPinned;
+
+    const updated = await this.prisma.groupMember.update({
+      where: {
+        groupId_userId: {
+          groupId,
+          userId,
+        },
+      },
+      data: {
+        isPinned: nextPinned,
+      },
+    });
+
+    return {
+      id: groupId,
+      isPinned: updated.isPinned,
     };
   }
 
@@ -177,6 +215,7 @@ export class GroupsService {
       role: GroupRole.MEMBER,
       memberCount: group._count.members + 1,
       createdAt: group.createdAt,
+      isPinned: false,
     };
   }
 

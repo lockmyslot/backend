@@ -20,6 +20,7 @@ import { GroupsService } from './groups.service';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { JoinGroupDto } from './dto/join-group.dto';
+import { PinGroupDto } from './dto/pin-group.dto';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { GroupMemberGuard } from './guards/group-member.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -79,6 +80,18 @@ export class GroupsController {
     @Body() dto: UpdateGroupDto,
   ) {
     return this.groupsService.updateGroup(id, dto, user.id);
+  }
+
+  @Patch(':id/pin')
+  @UseGuards(GroupMemberGuard)
+  @ApiOperation({ summary: 'Pin or unpin a group to the top for current user' })
+  @ApiResponse({ status: 200, description: 'Group pin status toggled' })
+  async togglePinGroup(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body() dto?: PinGroupDto,
+  ) {
+    return this.groupsService.togglePinGroup(id, user.id, dto?.isPinned);
   }
 
   @Get(':id/members')

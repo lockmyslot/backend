@@ -27,6 +27,7 @@ describe('GroupsService', () => {
         findMany: jest.fn(),
         count: jest.fn(),
         delete: jest.fn(),
+        update: jest.fn(),
       },
       booking: {
         updateMany: jest.fn(),
@@ -322,5 +323,73 @@ describe('GroupsService', () => {
     const result = await service.regenerateInviteCode('group-1');
     expect(result).toHaveProperty('inviteCode');
     expect(prismaService.group.update).toHaveBeenCalled();
+  });
+
+  describe('togglePinGroup', () => {
+    it('should throw NotFoundException if membership does not exist', async () => {
+      (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.togglePinGroup('group-1', 'user-1'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should toggle pin status when isPinned is not provided', async () => {
+      (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue({
+        id: 'member-1',
+        groupId: 'group-1',
+        userId: 'user-1',
+        isPinned: false,
+      });
+      (prismaService.groupMember.update as jest.Mock).mockResolvedValue({
+        id: 'member-1',
+        groupId: 'group-1',
+        userId: 'user-1',
+        isPinned: true,
+      });
+
+      const result = await service.togglePinGroup('group-1', 'user-1');
+      expect(prismaService.groupMember.update).toHaveBeenCalledWith({
+        where: {
+          groupId_userId: {
+            groupId: 'group-1',
+            userId: 'user-1',
+          },
+        },
+        data: {
+          isPinned: true,
+        },
+      });
+      expect(result).toEqual({ id: 'group-1', isPinned: true });
+    });
+
+    it('should set explicit isPinned status when provided', async () => {
+      (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue({
+        id: 'member-1',
+        groupId: 'group-1',
+        userId: 'user-1',
+        isPinned: true,
+      });
+      (prismaService.groupMember.update as jest.Mock).mockResolvedValue({
+        id: 'member-1',
+        groupId: 'group-1',
+        userId: 'user-1',
+        isPinned: false,
+      });
+
+      const result = await service.togglePinGroup('group-1', 'user-1', false);
+      expect(prismaService.groupMember.update).toHaveBeenCalledWith({
+        where: {
+          groupId_userId: {
+            groupId: 'group-1',
+            userId: 'user-1',
+          },
+        },
+        data: {
+          isPinned: false,
+        },
+      });
+      expect(result).toEqual({ id: 'group-1', isPinned: false });
+    });
   });
 });

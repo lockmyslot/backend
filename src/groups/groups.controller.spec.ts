@@ -12,6 +12,7 @@ describe('GroupsController', () => {
       joinGroup: jest.fn(),
       getGroupDetails: jest.fn(),
       updateGroup: jest.fn(),
+      togglePinGroup: jest.fn(),
       getMembers: jest.fn(),
       removeMember: jest.fn(),
       leaveGroup: jest.fn(),
@@ -74,6 +75,14 @@ describe('GroupsController', () => {
       'user-1',
     );
     expect(result).toHaveProperty('id', 'group-1');
+  });
+
+  it('should delegate togglePinGroup', async () => {
+    groupsService.togglePinGroup.mockResolvedValue({ id: 'group-1', isPinned: true });
+
+    const result = await controller.togglePinGroup('group-1', { id: 'user-1' } as any, { isPinned: true });
+    expect(groupsService.togglePinGroup).toHaveBeenCalledWith('group-1', 'user-1', true);
+    expect(result).toEqual({ id: 'group-1', isPinned: true });
   });
 
   it('should delegate getMembers', async () => {

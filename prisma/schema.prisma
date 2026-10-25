@@ -86,6 +86,7 @@ model GroupMember {
   groupId  String    @map("group_id") @db.Uuid
   userId   String    @map("user_id") @db.Uuid
   role     GroupRole @default(MEMBER)
+  isPinned Boolean   @default(false) @map("is_pinned")
   joinedAt DateTime  @default(now()) @map("joined_at")
 
   group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
@@ -100,6 +101,7 @@ model Resource {
   groupId             String   @map("group_id") @db.Uuid
   name                String
   description         String?
+  icon                String?
   capacity            Int      @default(1)
   slotDurationMinutes Int      @map("slot_duration_minutes") @default(30)
   isActive            Boolean  @default(true) @map("is_active")
