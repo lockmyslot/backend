@@ -104,6 +104,30 @@ describe('RulesService (Rule Evaluation Engine)', () => {
     expect(res.violations[0]).toContain('starts before available_from');
   });
 
+  it('2b. should reject booking ending after available_until', async () => {
+    const start = getTomorrowAt(21);
+    const end = getTomorrowAt(23);
+
+    (prismaService.bookingRule.findFirst as jest.Mock).mockResolvedValue({
+      id: 'rule-1',
+      resourceId: 'res-1',
+      dayScope: DayScope.WEEKDAY,
+      availableFrom: '08:00',
+      availableUntil: '22:00',
+    });
+    (prismaService.booking.count as jest.Mock).mockResolvedValue(0);
+
+    const res = await service.validate(
+      mockResource,
+      'user-1',
+      'group-1',
+      start,
+      end,
+    );
+    expect(res.allowed).toBe(false);
+    expect(res.violations[0]).toContain('ends after available_until');
+  });
+
   it('3. should reject booking duration below minimum', async () => {
     const resWith15Min = { ...mockResource, slotDurationMinutes: 15 };
     const start = getTomorrowAt(10, 0);
