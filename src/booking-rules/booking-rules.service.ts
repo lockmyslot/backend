@@ -60,7 +60,15 @@ export class BookingRulesService {
       seenScopes.add(rule.dayScope);
 
       if (rule.availableFrom && rule.availableUntil) {
-        if (rule.availableFrom >= rule.availableUntil) {
+        const [fromH, fromM] = rule.availableFrom.split(':').map(Number);
+        let [untilH, untilM] = rule.availableUntil.split(':').map(Number);
+        if (rule.availableUntil === '24:00') {
+          untilH = 24;
+          untilM = 0;
+        }
+        const fromMinutes = fromH * 60 + fromM;
+        const untilMinutes = untilH * 60 + untilM;
+        if (fromMinutes >= untilMinutes) {
           throw new BadRequestException(
             'available_until must be after available_from',
           );
