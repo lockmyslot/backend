@@ -72,6 +72,7 @@ async function main() {
       groupId: group.id,
       name: 'Washing Machine',
       description: 'Shared laundry washing machine',
+      icon: 'washing_machine',
       capacity: 1,
       slotDurationMinutes: 60,
       isActive: true,
