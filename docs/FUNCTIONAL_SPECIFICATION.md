@@ -145,8 +145,9 @@ erDiagram
 - **Invite Codes & Username Invites**:
   - Automatically generated 6-character alphanumeric code upon creation.
   - Admins can regenerate the invite code at any time (`POST /api/v1/groups/:id/regenerate_invite`), immediately invalidating old codes.
-  - Admins can invite registered users directly by their username (`POST /api/v1/groups/:id/invite`), adding them to the group as members immediately.
-- **Joining Groups**: Users join by submitting an active invite code (`POST /api/v1/groups/join`) or being invited by an admin via username.
+  - Admins can invite registered users directly by their username (`POST /api/v1/groups/:id/invite`), creating a pending invitation.
+  - Invited users can view pending invites from their **Me** tab, where they can choose to **Accept** (joining the group as `MEMBER`) or **Decline**.
+- **Joining Groups**: Users join by submitting an active invite code (`POST /api/v1/groups/join`) or accepting a pending invite from the Me tab.
 - **Membership & Roles**:
   - `ADMIN`: Has full privileges (edit group, manage members, create/update/delete resources, configure booking rules, schedule maintenance, cancel any member's bookings).
   - `MEMBER`: Can view resources, check availability, book slots, view group maintenance, and manage their own bookings.
@@ -259,7 +260,14 @@ Base URL prefix: `/api/v1`
 | `POST` | `/groups/:id/regenerate_invite`| Bearer | Admin | Regenerate a fresh invite code. |
 | `POST` | `/groups/:id/invite` | Bearer | Admin | Invite a user to the group by `username`. |
 
-### 6.3 Resources (`/groups/:group_id/resources`)
+### 6.3 Invites (`/invites`)
+| Method | Path | Auth | Role | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/invites` | Bearer | Any | List all pending group invites for current user. |
+| `POST` | `/invites/:id/accept` | Bearer | Any | Accept pending invite and join group as `MEMBER`. |
+| `POST` | `/invites/:id/decline`| Bearer | Any | Decline pending group invite. |
+
+### 6.4 Resources (`/groups/:group_id/resources`)
 | Method | Path | Auth | Role | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `POST` | `/groups/:group_id/resources` | Bearer | Admin | Create a new resource. |
