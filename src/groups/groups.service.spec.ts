@@ -71,10 +71,35 @@ describe('GroupsService', () => {
 
     const result = await service.createGroup('user-1', {
       name: 'Apartment 4B',
+      color: '#3B82F6',
+      icon: 'apartment',
     });
     expect(result).toHaveProperty('id', 'group-1');
     expect(result).toHaveProperty('role', GroupRole.ADMIN);
     expect(result).toHaveProperty('inviteCode', 'X7K9M2');
+  });
+
+  it('should create a group with custom color and icon', async () => {
+    (prismaService.group.findUnique as jest.Mock).mockResolvedValue(null);
+    (prismaService.group.create as jest.Mock).mockResolvedValue({
+      id: 'group-2',
+      name: 'Tennis Club',
+      inviteCode: 'TC1234',
+      color: '#10B981',
+      icon: 'sports',
+      createdById: 'user-1',
+      createdAt: new Date(),
+      _count: { members: 1 },
+    });
+
+    const result = await service.createGroup('user-1', {
+      name: 'Tennis Club',
+      color: '#10B981',
+      icon: 'sports',
+    });
+    expect(result).toHaveProperty('id', 'group-2');
+    expect(result).toHaveProperty('color', '#10B981');
+    expect(result).toHaveProperty('icon', 'sports');
   });
 
   it('should throw NotFoundException on invalid invite code when joining', async () => {
@@ -274,6 +299,26 @@ describe('GroupsService', () => {
     );
     expect(result).toHaveProperty('name', 'Renamed');
     expect(result).toHaveProperty('role', GroupRole.ADMIN);
+  });
+
+  it('should update group color and icon', async () => {
+    (prismaService.group.update as jest.Mock).mockResolvedValue({
+      id: 'group-1',
+      name: 'Renamed',
+      inviteCode: 'X7K9M2',
+      color: '#EF4444',
+      icon: 'groups',
+      createdAt: new Date(),
+      _count: { members: 2 },
+    });
+
+    const result = await service.updateGroup(
+      'group-1',
+      { color: '#EF4444', icon: 'groups' },
+      'user-1',
+    );
+    expect(result).toHaveProperty('color', '#EF4444');
+    expect(result).toHaveProperty('icon', 'groups');
   });
 
   it('should list group members', async () => {

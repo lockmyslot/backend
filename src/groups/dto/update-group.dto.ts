@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, Length } from 'class-validator';
+import { IsOptional, IsString, Length } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class UpdateGroupDto {
@@ -8,10 +8,35 @@ export class UpdateGroupDto {
     example: 'Apartment 4B - Main',
     minLength: 2,
     maxLength: 100,
+    required: false,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
   @Length(2, 100)
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
-  name: string;
+  name?: string;
+
+  @ApiProperty({
+    description: 'Updated hex color for the group',
+    example: '#3B82F6',
+    required: false,
+    maxLength: 20,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(0, 20)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  color?: string;
+
+  @ApiProperty({
+    description: 'Updated icon key for the group',
+    example: 'groups',
+    required: false,
+    maxLength: 50,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(0, 50)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  icon?: string;
 }

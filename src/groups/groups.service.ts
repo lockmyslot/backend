@@ -48,6 +48,8 @@ export class GroupsService {
       data: {
         name: dto.name,
         inviteCode,
+        color: dto.color ? dto.color.trim() : null,
+        icon: dto.icon ? dto.icon.trim() : null,
         createdById: userId,
         members: {
           create: {
@@ -67,6 +69,8 @@ export class GroupsService {
       id: group.id,
       name: group.name,
       inviteCode: group.inviteCode,
+      color: group.color,
+      icon: group.icon,
       role: GroupRole.ADMIN,
       memberCount: group._count.members,
       createdAt: group.createdAt,
@@ -94,6 +98,8 @@ export class GroupsService {
       return {
         id: m.group.id,
         name: m.group.name,
+        color: m.group.color,
+        icon: m.group.icon,
         role: m.role,
         ...(isAdmin ? { inviteCode: m.group.inviteCode } : {}),
         memberCount: m.group._count.members,
@@ -130,6 +136,8 @@ export class GroupsService {
     return {
       id: group.id,
       name: group.name,
+      color: group.color,
+      icon: group.icon,
       role: membership.role,
       ...(isAdmin ? { inviteCode: group.inviteCode } : {}),
       memberCount: group._count.members,
@@ -230,11 +238,16 @@ export class GroupsService {
   }
 
   async updateGroup(groupId: string, dto: UpdateGroupDto, userId: string) {
+    const dataToUpdate: any = {};
+    if (dto.name !== undefined) dataToUpdate.name = dto.name;
+    if (dto.color !== undefined)
+      dataToUpdate.color = dto.color ? dto.color.trim() : null;
+    if (dto.icon !== undefined)
+      dataToUpdate.icon = dto.icon ? dto.icon.trim() : null;
+
     const group = await this.prisma.group.update({
       where: { id: groupId },
-      data: {
-        name: dto.name,
-      },
+      data: dataToUpdate,
       include: {
         _count: {
           select: { members: true },
@@ -246,6 +259,8 @@ export class GroupsService {
       id: group.id,
       name: group.name,
       inviteCode: group.inviteCode,
+      color: group.color,
+      icon: group.icon,
       role: GroupRole.ADMIN,
       memberCount: group._count.members,
       createdAt: group.createdAt,
