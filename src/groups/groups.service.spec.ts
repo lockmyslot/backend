@@ -7,7 +7,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import { GroupRole } from '@prisma/client';
+import { GroupRole, InviteStatus } from '@prisma/client';
 
 describe('GroupsService', () => {
   let service: GroupsService;
@@ -36,6 +36,7 @@ describe('GroupsService', () => {
         findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
       },
       user: {
         findFirst: jest.fn(),
@@ -230,7 +231,7 @@ describe('GroupsService', () => {
     expect(result).toHaveProperty('role', GroupRole.ADMIN);
   });
 
-  it('should join a group successfully', async () => {
+  it('should join a group successfully and resolve pending invites', async () => {
     (prismaService.group.findUnique as jest.Mock).mockResolvedValue({
       id: 'group-1',
       name: 'Apartment 4B',
@@ -240,10 +241,21 @@ describe('GroupsService', () => {
     });
     (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue(null);
     (prismaService.groupMember.create as jest.Mock).mockResolvedValue({});
+    (prismaService.groupInvite.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
 
     const result = await service.joinGroup('user-3', { inviteCode: 'X7K9M2' });
     expect(result).toHaveProperty('role', GroupRole.MEMBER);
     expect(result).toHaveProperty('memberCount', 3);
+    expect(prismaService.groupInvite.updateMany).toHaveBeenCalledWith({
+      where: {
+        groupId: 'group-1',
+        invitedUserId: 'user-3',
+        status: InviteStatus.PENDING,
+      },
+      data: {
+        status: InviteStatus.ACCEPTED,
+      },
+    });
   });
 
   it('should update a group name', async () => {

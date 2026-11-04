@@ -207,6 +207,18 @@ export class GroupsService {
       },
     });
 
+    // Mark any existing pending invite for this user and group as ACCEPTED
+    await this.prisma.groupInvite.updateMany({
+      where: {
+        groupId: group.id,
+        invitedUserId: userId,
+        status: InviteStatus.PENDING,
+      },
+      data: {
+        status: InviteStatus.ACCEPTED,
+      },
+    });
+
     return {
       id: group.id,
       name: group.name,
