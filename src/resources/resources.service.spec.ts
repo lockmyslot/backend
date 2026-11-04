@@ -73,6 +73,68 @@ describe('ResourcesService', () => {
     expect(result).toHaveProperty('slotDurationMinutes', 60);
   });
 
+  it('should create a resource configured in hours', async () => {
+    const mockResource = {
+      id: 'res-hours',
+      groupId: 'group-1',
+      name: 'Conference Room',
+      capacity: 10,
+      slotDurationMinutes: 120,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    (prismaService.resource.create as jest.Mock).mockResolvedValue(mockResource);
+
+    const result = await service.createResource('group-1', {
+      name: 'Conference Room',
+      capacity: 10,
+      slotDuration: 2,
+      slotDurationUnit: 'hours',
+    });
+
+    expect(prismaService.resource.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          slotDurationMinutes: 120,
+        }),
+      }),
+    );
+    expect(result).toHaveProperty('slotDurationMinutes', 120);
+  });
+
+  it('should create a resource configured in days', async () => {
+    const mockResource = {
+      id: 'res-days',
+      groupId: 'group-1',
+      name: 'Guest Apartment',
+      capacity: 1,
+      slotDurationMinutes: 1440,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    (prismaService.resource.create as jest.Mock).mockResolvedValue(mockResource);
+
+    const result = await service.createResource('group-1', {
+      name: 'Guest Apartment',
+      capacity: 1,
+      slotDuration: 1,
+      slotDurationUnit: 'days',
+    });
+
+    expect(prismaService.resource.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          slotDurationMinutes: 1440,
+        }),
+      }),
+    );
+    expect(result).toHaveProperty('slotDurationMinutes', 1440);
+  });
+
   it('should create a resource with icon', async () => {
     const mockResource = {
       id: 'res-wm',
@@ -298,6 +360,30 @@ describe('ResourcesService', () => {
       where: { id: 'res-1' },
       data: {
         icon: null,
+      },
+    });
+
+    // Update color test
+    (prismaService.resource.update as jest.Mock).mockResolvedValue({
+      id: 'res-1',
+      groupId: 'group-1',
+      name: 'Computer Lab',
+      icon: 'computer',
+      color: '#3B82F6',
+      capacity: 1,
+      slotDurationMinutes: 30,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const colorUpdated = await service.updateResource('group-1', 'res-1', {
+      color: '#3B82F6',
+    });
+    expect(colorUpdated).toHaveProperty('color', '#3B82F6');
+    expect(prismaService.resource.update).toHaveBeenCalledWith({
+      where: { id: 'res-1' },
+      data: {
+        color: '#3B82F6',
       },
     });
   });

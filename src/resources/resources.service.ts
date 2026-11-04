@@ -12,10 +12,42 @@ import { BookingStatus, GroupRole } from '@prisma/client';
 export class ResourcesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private resolveSlotDuration(dto: {
+    slotDurationMinutes?: number;
+    slotDuration?: number;
+    slotDurationUnit?: 'minutes' | 'hours' | 'days';
+  }): number | undefined {
+    if (dto.slotDuration !== undefined && dto.slotDurationUnit !== undefined) {
+      switch (dto.slotDurationUnit) {
+        case 'hours':
+          return dto.slotDuration * 60;
+        case 'days':
+          return dto.slotDuration * 1440;
+        case 'minutes':
+        default:
+          return dto.slotDuration;
+      }
+    }
+    return dto.slotDurationMinutes;
+  }
+
   async createResource(groupId: string, dto: CreateResourceDto) {
-    if (dto.slotDurationMinutes % 15 !== 0) {
+    const slotDurationMinutes = this.resolveSlotDuration(dto);
+    if (slotDurationMinutes === undefined) {
+      throw new BadRequestException(
+        'slot_duration_minutes or slot_duration and slot_duration_unit is required',
+      );
+    }
+
+    if (slotDurationMinutes % 15 !== 0) {
       throw new BadRequestException(
         'slot_duration_minutes must be a multiple of 15',
+      );
+    }
+
+    if (slotDurationMinutes < 15 || slotDurationMinutes > 43200) {
+      throw new BadRequestException(
+        'slot duration must be between 15 minutes and 30 days (43200 minutes)',
       );
     }
 
@@ -25,8 +57,9 @@ export class ResourcesService {
         name: dto.name,
         description: dto.description,
         icon: dto.icon ? dto.icon.trim() : null,
+        color: dto.color ? dto.color.trim() : null,
         capacity: dto.capacity,
-        slotDurationMinutes: dto.slotDurationMinutes,
+        slotDurationMinutes,
         isActive: true,
       },
     });
@@ -37,6 +70,7 @@ export class ResourcesService {
       name: resource.name,
       description: resource.description,
       icon: resource.icon,
+      color: resource.color,
       capacity: resource.capacity,
       slotDurationMinutes: resource.slotDurationMinutes,
       isActive: resource.isActive,
@@ -73,6 +107,7 @@ export class ResourcesService {
       name: r.name,
       description: r.description,
       icon: r.icon,
+      color: r.color,
       capacity: r.capacity,
       slotDurationMinutes: r.slotDurationMinutes,
       isActive: r.isActive,
@@ -103,6 +138,7 @@ export class ResourcesService {
       name: resource.name,
       description: resource.description,
       icon: resource.icon,
+      color: resource.color,
       capacity: resource.capacity,
       slotDurationMinutes: resource.slotDurationMinutes,
       isActive: resource.isActive,
@@ -128,13 +164,18 @@ export class ResourcesService {
     resourceId: string,
     dto: UpdateResourceDto,
   ) {
-    if (
-      dto.slotDurationMinutes !== undefined &&
-      dto.slotDurationMinutes % 15 !== 0
-    ) {
-      throw new BadRequestException(
-        'slot_duration_minutes must be a multiple of 15',
-      );
+    const slotDurationMinutes = this.resolveSlotDuration(dto);
+    if (slotDurationMinutes !== undefined) {
+      if (slotDurationMinutes % 15 !== 0) {
+        throw new BadRequestException(
+          'slot_duration_minutes must be a multiple of 15',
+        );
+      }
+      if (slotDurationMinutes < 15 || slotDurationMinutes > 43200) {
+        throw new BadRequestException(
+          'slot duration must be between 15 minutes and 30 days (43200 minutes)',
+        );
+      }
     }
 
     const resourceExists = await this.prisma.resource.findFirst({
@@ -155,9 +196,12 @@ export class ResourcesService {
         ...(dto.icon !== undefined
           ? { icon: dto.icon && dto.icon.trim() ? dto.icon.trim() : null }
           : {}),
+        ...(dto.color !== undefined
+          ? { color: dto.color && dto.color.trim() ? dto.color.trim() : null }
+          : {}),
         ...(dto.capacity !== undefined ? { capacity: dto.capacity } : {}),
-        ...(dto.slotDurationMinutes !== undefined
-          ? { slotDurationMinutes: dto.slotDurationMinutes }
+        ...(slotDurationMinutes !== undefined
+          ? { slotDurationMinutes }
           : {}),
         ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
       },
@@ -169,6 +213,7 @@ export class ResourcesService {
       name: updated.name,
       description: updated.description,
       icon: updated.icon,
+      color: updated.color,
       capacity: updated.capacity,
       slotDurationMinutes: updated.slotDurationMinutes,
       isActive: updated.isActive,

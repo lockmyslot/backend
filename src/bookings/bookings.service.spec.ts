@@ -286,6 +286,27 @@ describe('BookingsService', () => {
       expect(result.userStats.bookingsToday).toBe(0);
     });
 
+    it('should generate a 1-day slot for day-scale resources', async () => {
+      (prismaService.resource.findFirst as jest.Mock).mockResolvedValue({
+        ...mockResource,
+        slotDurationMinutes: 1440,
+        capacity: 1,
+      });
+      (prismaService.bookingRule.findFirst as jest.Mock).mockResolvedValue(null);
+      (prismaService.booking.findMany as jest.Mock).mockResolvedValue([]);
+
+      const result = await service.getAvailability(
+        'group-1',
+        'res-1',
+        'user-1',
+        '2026-08-11',
+      );
+      expect(result.slots.length).toBe(1);
+      expect(result.slots[0].startTime).toBe('2026-08-11T00:00:00.000Z');
+      expect(result.slots[0].endTime).toBe('2026-08-12T00:00:00.000Z');
+      expect(result.slots[0].status).toBe('available');
+    });
+
     it('should mark slot as cooldown when violating cooldown rule', async () => {
       (prismaService.resource.findFirst as jest.Mock).mockResolvedValue({
         ...mockResource,

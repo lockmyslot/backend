@@ -48,6 +48,18 @@ export class CreateResourceDto {
   icon?: string;
 
   @ApiProperty({
+    description: 'Optional hex color for the resource (e.g. #3B82F6)',
+    example: '#3B82F6',
+    required: false,
+    maxLength: 20,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(0, 20)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  color?: string;
+
+  @ApiProperty({
     description: 'Maximum concurrent bookings per slot',
     example: 1,
     minimum: 1,
@@ -61,14 +73,37 @@ export class CreateResourceDto {
 
   @ApiProperty({
     description:
-      'Slot duration granularity in minutes (15 to 1080, multiple of 15)',
+      'Slot duration granularity in minutes (15 to 43200, multiple of 15)',
     example: 60,
+    required: false,
     minimum: 15,
-    maximum: 1080,
+    maximum: 43200,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsInt()
   @Min(15)
-  @Max(1080)
-  slotDurationMinutes: number;
+  @Max(43200)
+  slotDurationMinutes?: number;
+
+  @ApiProperty({
+    description:
+      'Slot duration numeric value when configured with slot_duration_unit',
+    example: 2,
+    required: false,
+    minimum: 1,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  slotDuration?: number;
+
+  @ApiProperty({
+    description: 'Slot duration unit: minutes, hours, or days',
+    example: 'hours',
+    required: false,
+    enum: ['minutes', 'hours', 'days'],
+  })
+  @IsOptional()
+  @IsString()
+  slotDurationUnit?: 'minutes' | 'hours' | 'days';
 }

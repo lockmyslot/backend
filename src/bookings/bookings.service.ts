@@ -135,6 +135,7 @@ export class BookingsService {
         resourceId: booking.resourceId,
         resourceName: resource.name,
         resourceIcon: resource.icon,
+        resourceColor: resource.color,
         userId: booking.userId,
         groupId: booking.groupId,
         startTime: booking.startTime,
@@ -248,7 +249,11 @@ export class BookingsService {
     const slotDuration = resource.slotDurationMinutes;
 
     const startOfDay = new Date(`${dateStr}T00:00:00.000Z`);
-    const endOfDay = new Date(`${dateStr}T23:59:59.999Z`);
+    const endOfDay = new Date(
+      slotDuration >= 1440
+        ? startOfDay.getTime() + slotDuration * 60 * 1000
+        : `${dateStr}T23:59:59.999Z`,
+    );
 
     // Existing bookings for resource on target date
     const dayBookings = await this.prisma.booking.findMany({
@@ -256,7 +261,8 @@ export class BookingsService {
         resourceId,
         status: BookingStatus.CONFIRMED,
         ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
-        startTime: { gte: startOfDay, lte: endOfDay },
+        startTime: { lt: endOfDay },
+        endTime: { gt: startOfDay },
       },
     });
 
@@ -296,24 +302,13 @@ export class BookingsService {
       capacity: number;
     }> = [];
 
-    for (
-      let m = startMinutes;
-      m + slotDuration <= endMinutes;
-      m += slotDuration
-    ) {
-      const sH = Math.floor(m / 60)
-        .toString()
-        .padStart(2, '0');
-      const sM = (m % 60).toString().padStart(2, '0');
-      const eH = Math.floor((m + slotDuration) / 60)
-        .toString()
-        .padStart(2, '0');
-      const eM = ((m + slotDuration) % 60).toString().padStart(2, '0');
-
-      const slotStartISO = `${dateStr}T${sH}:${sM}:00.000Z`;
-      const slotEndISO = `${dateStr}T${eH}:${eM}:00.000Z`;
-      const slotStart = new Date(slotStartISO);
-      const slotEnd = new Date(slotEndISO);
+    if (slotDuration >= 1440) {
+      const sH = fromH.toString().padStart(2, '0');
+      const sM = fromM.toString().padStart(2, '0');
+      const slotStart = new Date(`${dateStr}T${sH}:${sM}:00.000Z`);
+      const slotEnd = new Date(slotStart.getTime() + slotDuration * 60 * 1000);
+      const slotStartISO = slotStart.toISOString();
+      const slotEndISO = slotEnd.toISOString();
 
       const bookedCount = dayBookings.filter(
         (b) => b.startTime < slotEnd && b.endTime > slotStart,
@@ -353,6 +348,60 @@ export class BookingsService {
         booked: bookedCount,
         capacity: resource.capacity,
       });
+    } else {
+      for (
+        let m = startMinutes;
+        m + slotDuration <= endMinutes;
+        m += slotDuration
+      ) {
+        const sH = Math.floor(m / 60)
+          .toString()
+          .padStart(2, '0');
+        const sM = (m % 60).toString().padStart(2, '0');
+        const slotStart = new Date(`${dateStr}T${sH}:${sM}:00.000Z`);
+        const slotEnd = new Date(slotStart.getTime() + slotDuration * 60 * 1000);
+        const slotStartISO = slotStart.toISOString();
+        const slotEndISO = slotEnd.toISOString();
+
+        const bookedCount = dayBookings.filter(
+          (b) => b.startTime < slotEnd && b.endTime > slotStart,
+        ).length;
+
+        const isMaintenance = dayMaintenanceTasks.some((task) =>
+          isIntervalOverlappingMaintenance(slotStart, slotEnd, task),
+        );
+
+        let status = 'available';
+
+        if (isMaintenance) {
+          status = 'maintenance';
+        } else if (bookedCount >= resource.capacity) {
+          status = 'full';
+        } else if (rule?.cooldownMinutes && userDayBookings.length > 0) {
+          const cooldownMs = rule.cooldownMinutes * 60 * 1000;
+          const violatesCooldown = userDayBookings.some((b) => {
+            const gapAfterPrev = slotStart.getTime() - b.endTime.getTime();
+            const gapBeforeNext = b.startTime.getTime() - slotEnd.getTime();
+
+            return (
+              (gapAfterPrev >= 0 && gapAfterPrev < cooldownMs) ||
+              (gapBeforeNext >= 0 && gapBeforeNext < cooldownMs)
+            );
+          });
+
+          if (violatesCooldown) {
+            status = 'cooldown';
+          }
+        }
+
+        slots.push({
+          startTime: slotStartISO,
+          endTime: slotEndISO,
+          status,
+          booked: bookedCount,
+          capacity: resource.capacity,
+        });
+      }
     }
 
     return {
@@ -526,6 +575,7 @@ export class BookingsService {
         resourceId: updated.resourceId,
         resourceName: updated.resource.name,
         resourceIcon: updated.resource.icon,
+        resourceColor: updated.resource.color,
         userId: updated.userId,
         userDisplayName: updated.user?.displayName,
         groupId: updated.groupId,
@@ -577,6 +627,7 @@ export class BookingsService {
       resourceId: b.resourceId,
       resourceName: b.resource.name,
       resourceIcon: b.resource.icon,
+      resourceColor: b.resource.color,
       userId: b.userId,
       groupId: b.groupId,
       startTime: b.startTime,
