@@ -93,11 +93,41 @@ export class AuthService {
   }
 
   async updateProfile(userId: string, dto: UpdateProfileDto) {
+    const data: {
+      displayName?: string;
+      username?: string;
+      passwordHash?: string;
+    } = {};
+
+    if (dto.displayName !== undefined) {
+      data.displayName = dto.displayName;
+    }
+
+    if (dto.username !== undefined) {
+      const username = dto.username.trim().toLowerCase();
+      const existing = await this.prisma.user.findFirst({
+        where: {
+          username: { equals: username, mode: 'insensitive' },
+          id: { not: userId },
+        },
+      });
+      if (existing) {
+        throw new ConflictException('Username is already taken');
+      }
+      data.username = username;
+    }
+
+    if (dto.password !== undefined) {
+      data.passwordHash = await bcrypt.hash(dto.password, 10);
+    }
+
+    if (Object.keys(data).length === 0) {
+      return this.getProfile(userId);
+    }
+
     const user = await this.prisma.user.update({
       where: { id: userId },
-      data: {
-        displayName: dto.displayName,
-      },
+      data,
     });
 
     return {
