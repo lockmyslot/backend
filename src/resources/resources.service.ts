@@ -84,7 +84,9 @@ export class ResourcesService {
     includeInactive = false,
     role?: GroupRole,
   ) {
-    const allowInactive = includeInactive && role === GroupRole.ADMIN;
+    const allowInactive =
+      includeInactive &&
+      (role === GroupRole.ADMIN || role === GroupRole.MODERATOR);
 
     const resources = await this.prisma.resource.findMany({
       where: {
@@ -200,9 +202,7 @@ export class ResourcesService {
           ? { color: dto.color && dto.color.trim() ? dto.color.trim() : null }
           : {}),
         ...(dto.capacity !== undefined ? { capacity: dto.capacity } : {}),
-        ...(slotDurationMinutes !== undefined
-          ? { slotDurationMinutes }
-          : {}),
+        ...(slotDurationMinutes !== undefined ? { slotDurationMinutes } : {}),
         ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
       },
     });

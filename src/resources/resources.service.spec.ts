@@ -85,7 +85,9 @@ describe('ResourcesService', () => {
       updatedAt: new Date(),
     };
 
-    (prismaService.resource.create as jest.Mock).mockResolvedValue(mockResource);
+    (prismaService.resource.create as jest.Mock).mockResolvedValue(
+      mockResource,
+    );
 
     const result = await service.createResource('group-1', {
       name: 'Conference Room',
@@ -116,7 +118,9 @@ describe('ResourcesService', () => {
       updatedAt: new Date(),
     };
 
-    (prismaService.resource.create as jest.Mock).mockResolvedValue(mockResource);
+    (prismaService.resource.create as jest.Mock).mockResolvedValue(
+      mockResource,
+    );
 
     const result = await service.createResource('group-1', {
       name: 'Guest Apartment',
@@ -221,6 +225,15 @@ describe('ResourcesService', () => {
     (prismaService.resource.findMany as jest.Mock).mockResolvedValue([]);
 
     await service.getResources('group-1', true, GroupRole.ADMIN);
+    const callArgs = (prismaService.resource.findMany as jest.Mock).mock
+      .calls[0][0];
+    expect(callArgs.where).not.toHaveProperty('isActive');
+  });
+
+  it('should include inactive resources for MODERATOR when includeInactive is true', async () => {
+    (prismaService.resource.findMany as jest.Mock).mockResolvedValue([]);
+
+    await service.getResources('group-1', true, GroupRole.MODERATOR);
     const callArgs = (prismaService.resource.findMany as jest.Mock).mock
       .calls[0][0];
     expect(callArgs.where).not.toHaveProperty('isActive');

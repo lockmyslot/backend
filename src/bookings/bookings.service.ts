@@ -53,6 +53,21 @@ export class BookingsService {
     const startTime = new Date(dto.startTime);
     const endTime = new Date(dto.endTime);
 
+    const membership = await this.prisma.groupMember?.findUnique({
+      where: {
+        groupId_userId: {
+          groupId,
+          userId,
+        },
+      },
+    });
+
+    if (membership?.role === GroupRole.GUEST && membership.expiresAt) {
+      if (endTime > membership.expiresAt) {
+        throw new BadRequestException('guest_booking_exceeds_expiration');
+      }
+    }
+
     // Validate rules
     const valResult = await this.rulesService.validate(
       resource,
@@ -359,7 +374,9 @@ export class BookingsService {
           .padStart(2, '0');
         const sM = (m % 60).toString().padStart(2, '0');
         const slotStart = new Date(`${dateStr}T${sH}:${sM}:00.000Z`);
-        const slotEnd = new Date(slotStart.getTime() + slotDuration * 60 * 1000);
+        const slotEnd = new Date(
+          slotStart.getTime() + slotDuration * 60 * 1000,
+        );
         const slotStartISO = slotStart.toISOString();
         const slotEndISO = slotEnd.toISOString();
 
@@ -436,7 +453,11 @@ export class BookingsService {
       throw new NotFoundException('Booking not found in this group');
     }
 
-    if (booking.userId !== userId && userRole !== GroupRole.ADMIN) {
+    if (
+      booking.userId !== userId &&
+      userRole !== GroupRole.ADMIN &&
+      userRole !== GroupRole.MODERATOR
+    ) {
       throw new ForbiddenException('Not authorized to cancel this booking');
     }
 
@@ -489,6 +510,21 @@ export class BookingsService {
 
     const startTime = new Date(dto.startTime);
     const endTime = new Date(dto.endTime);
+
+    const membership = await this.prisma.groupMember?.findUnique({
+      where: {
+        groupId_userId: {
+          groupId,
+          userId,
+        },
+      },
+    });
+
+    if (membership?.role === GroupRole.GUEST && membership.expiresAt) {
+      if (endTime > membership.expiresAt) {
+        throw new BadRequestException('guest_booking_exceeds_expiration');
+      }
+    }
 
     // Validate rules, excluding this booking from counts/cooldown/overlap
     const valResult = await this.rulesService.validate(

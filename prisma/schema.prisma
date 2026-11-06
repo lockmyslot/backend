@@ -12,7 +12,9 @@ datasource db {
 
 enum GroupRole {
   ADMIN
+  MODERATOR
   MEMBER
+  GUEST
 }
 
 enum DayScope {
@@ -112,17 +114,19 @@ model GroupInvite {
 }
 
 model GroupMember {
-  id       String    @id @default(uuid()) @db.Uuid
-  groupId  String    @map("group_id") @db.Uuid
-  userId   String    @map("user_id") @db.Uuid
-  role     GroupRole @default(MEMBER)
-  isPinned Boolean   @default(false) @map("is_pinned")
-  joinedAt DateTime  @default(now()) @map("joined_at")
+  id        String    @id @default(uuid()) @db.Uuid
+  groupId   String    @map("group_id") @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  role      GroupRole @default(MEMBER)
+  isPinned  Boolean   @default(false) @map("is_pinned")
+  expiresAt DateTime? @map("expires_at")
+  joinedAt  DateTime  @default(now()) @map("joined_at")
 
   group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([groupId, userId])
+  @@index([role, expiresAt])
   @@map("group_members")
 }
 

@@ -22,6 +22,7 @@ import { UpdateGroupDto } from './dto/update-group.dto';
 import { JoinGroupDto } from './dto/join-group.dto';
 import { PinGroupDto } from './dto/pin-group.dto';
 import { InviteMemberDto } from './dto/invite-member.dto';
+import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { GroupMemberGuard } from './guards/group-member.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -139,14 +140,38 @@ export class GroupsController {
     return this.groupsService.inviteMemberByUsername(id, user.id, dto);
   }
 
-  @Delete(':id/members/:user_id')
+  @Patch(':id/members/:user_id/role')
   @UseGuards(GroupMemberGuard)
   @Roles(GroupRole.ADMIN)
+  @ApiOperation({ summary: 'Update a member role (ADMIN only)' })
+  @ApiResponse({ status: 200, description: 'Role updated successfully' })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid role or missing expires_at for guest',
+  })
+  @ApiResponse({ status: 404, description: 'Member not found' })
+  async updateMemberRole(
+    @Param('id') id: string,
+    @Param('user_id') targetUserId: string,
+    @CurrentUser() user: any,
+    @Body() dto: UpdateMemberRoleDto,
+  ) {
+    return this.groupsService.updateMemberRole(id, user.id, targetUserId, dto);
+  }
+
+  @Delete(':id/members/:user_id')
+  @UseGuards(GroupMemberGuard)
+  @Roles(GroupRole.ADMIN, GroupRole.MODERATOR)
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Remove a member from group (ADMIN only)' })
+  @ApiOperation({
+    summary: 'Remove a member from group (ADMIN or MODERATOR for guests)',
+  })
   @ApiResponse({ status: 204, description: 'Member removed' })
   @ApiResponse({ status: 400, description: 'cannot_remove_self' })
-  @ApiResponse({ status: 403, description: 'cannot_remove_admin' })
+  @ApiResponse({
+    status: 403,
+    description: 'cannot_remove_admin or moderator cannot remove non-guest',
+  })
   async removeMember(
     @Param('id') id: string,
     @Param('user_id') targetUserId: string,

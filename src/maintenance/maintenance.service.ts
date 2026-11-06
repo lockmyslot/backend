@@ -124,6 +124,9 @@ export class MaintenanceService {
           'Assigned user must be a member of this group',
         );
       }
+      if (isMember.role === GroupRole.GUEST) {
+        throw new BadRequestException('cannot_assign_to_guest');
+      }
     }
 
     // Check for conflicting confirmed bookings
@@ -379,10 +382,14 @@ export class MaintenanceService {
       throw new NotFoundException('Maintenance task not found');
     }
 
-    if (userRole && userRole !== GroupRole.ADMIN) {
+    if (
+      userRole &&
+      userRole !== GroupRole.ADMIN &&
+      userRole !== GroupRole.MODERATOR
+    ) {
       if (existing.assignedToId !== currentUserId) {
         throw new ForbiddenException(
-          'Only admins or the assigned user can update this task',
+          'Only admins, moderators, or the assigned user can update this task',
         );
       }
 
@@ -419,6 +426,9 @@ export class MaintenanceService {
           throw new BadRequestException(
             'Assigned user must be a member of this group',
           );
+        }
+        if (isMember.role === GroupRole.GUEST) {
+          throw new BadRequestException('cannot_assign_to_guest');
         }
         newAssignedToId = dto.assignedToId;
       } else {
@@ -573,7 +583,10 @@ export class MaintenanceService {
       assignedToId: updated.assignedToId,
       assignedToName: updated.assignedTo?.displayName ?? null,
       assignedTo: updated.assignedTo
-        ? { id: updated.assignedTo.id, displayName: updated.assignedTo.displayName }
+        ? {
+            id: updated.assignedTo.id,
+            displayName: updated.assignedTo.displayName,
+          }
         : null,
       createdAt: updated.createdAt,
       updatedAt: updated.updatedAt,

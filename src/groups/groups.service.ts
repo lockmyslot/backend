@@ -10,6 +10,7 @@ import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { JoinGroupDto } from './dto/join-group.dto';
 import { InviteMemberDto } from './dto/invite-member.dto';
+import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { GroupRole, BookingStatus, InviteStatus } from '@prisma/client';
 
 function generateInviteCode(): string {
@@ -78,7 +79,49 @@ export class GroupsService {
     };
   }
 
+  async cleanupExpiredMemberships(groupId?: string) {
+    const now = new Date();
+    const expiredMembers = await this.prisma.groupMember.findMany({
+      where: {
+        role: GroupRole.GUEST,
+        expiresAt: { lte: now },
+        ...(groupId ? { groupId } : {}),
+      },
+    });
+
+    if (!Array.isArray(expiredMembers) || expiredMembers.length === 0) {
+      return;
+    }
+
+    for (const member of expiredMembers) {
+      await this.prisma.groupMember.delete({
+        where: {
+          groupId_userId: {
+            groupId: member.groupId,
+            userId: member.userId,
+          },
+        },
+      });
+
+      await this.prisma.booking.updateMany({
+        where: {
+          groupId: member.groupId,
+          userId: member.userId,
+          status: BookingStatus.CONFIRMED,
+          startTime: {
+            gt: now,
+          },
+        },
+        data: {
+          status: BookingStatus.CANCELLED,
+        },
+      });
+    }
+  }
+
   async getUserGroups(userId: string) {
+    await this.cleanupExpiredMemberships();
+
     const memberships = await this.prisma.groupMember.findMany({
       where: { userId },
       include: {
@@ -101,6 +144,7 @@ export class GroupsService {
         color: m.group.color,
         icon: m.group.icon,
         role: m.role,
+        expiresAt: m.expiresAt,
         ...(isAdmin ? { inviteCode: m.group.inviteCode } : {}),
         memberCount: m.group._count.members,
         createdAt: m.group.createdAt,
@@ -110,6 +154,8 @@ export class GroupsService {
   }
 
   async getGroupDetails(groupId: string, userId: string) {
+    await this.cleanupExpiredMemberships(groupId);
+
     const group = await this.prisma.group.findUnique({
       where: { id: groupId },
       include: {
@@ -139,6 +185,7 @@ export class GroupsService {
       color: group.color,
       icon: group.icon,
       role: membership.role,
+      expiresAt: membership.expiresAt,
       ...(isAdmin ? { inviteCode: group.inviteCode } : {}),
       memberCount: group._count.members,
       createdAt: group.createdAt,
@@ -268,6 +315,8 @@ export class GroupsService {
   }
 
   async getMembers(groupId: string) {
+    await this.cleanupExpiredMemberships(groupId);
+
     const members = await this.prisma.groupMember.findMany({
       where: { groupId },
       include: {
@@ -283,6 +332,7 @@ export class GroupsService {
       displayName: m.user.displayName,
       username: m.user.username,
       role: m.role,
+      expiresAt: m.expiresAt,
       joinedAt: m.joinedAt,
     }));
   }
@@ -405,6 +455,27 @@ export class GroupsService {
       throw new ForbiddenException('cannot_remove_admin');
     }
 
+    const currentMembership = await this.prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId,
+          userId: currentUserId,
+        },
+      },
+    });
+
+    if (currentMembership) {
+      if (currentMembership.role === GroupRole.MODERATOR) {
+        if (targetMembership.role !== GroupRole.GUEST) {
+          throw new ForbiddenException('Moderators can only remove guests');
+        }
+      } else if (currentMembership.role !== GroupRole.ADMIN) {
+        throw new ForbiddenException(
+          'Insufficient permissions to remove member',
+        );
+      }
+    }
+
     // Delete membership
     await this.prisma.groupMember.delete({
       where: {
@@ -429,6 +500,87 @@ export class GroupsService {
         status: BookingStatus.CANCELLED,
       },
     });
+  }
+
+  async updateMemberRole(
+    groupId: string,
+    currentUserId: string,
+    targetUserId: string,
+    dto: UpdateMemberRoleDto,
+  ) {
+    const targetMembership = await this.prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId,
+          userId: targetUserId,
+        },
+      },
+      include: {
+        user: true,
+      },
+    });
+
+    if (!targetMembership) {
+      throw new NotFoundException('Member not found in this group');
+    }
+
+    // Check if demoting the sole admin
+    if (
+      targetMembership.role === GroupRole.ADMIN &&
+      dto.role !== GroupRole.ADMIN
+    ) {
+      const adminCount = await this.prisma.groupMember.count({
+        where: {
+          groupId,
+          role: GroupRole.ADMIN,
+        },
+      });
+
+      if (adminCount <= 1) {
+        throw new BadRequestException('sole_admin_cannot_change_role');
+      }
+    }
+
+    let expiresAt: Date | null = null;
+    if (dto.role === GroupRole.GUEST) {
+      if (!dto.expiresAt) {
+        throw new BadRequestException(
+          'Guest members must have an expiration date',
+        );
+      }
+      const expDate = new Date(dto.expiresAt);
+      if (isNaN(expDate.getTime()) || expDate <= new Date()) {
+        throw new BadRequestException(
+          'Expiration date must be a valid future date',
+        );
+      }
+      expiresAt = expDate;
+    }
+
+    const updated = await this.prisma.groupMember.update({
+      where: {
+        groupId_userId: {
+          groupId,
+          userId: targetUserId,
+        },
+      },
+      data: {
+        role: dto.role,
+        expiresAt,
+      },
+      include: {
+        user: true,
+      },
+    });
+
+    return {
+      id: updated.user.id,
+      displayName: updated.user.displayName,
+      username: updated.user.username,
+      role: updated.role,
+      expiresAt: updated.expiresAt,
+      joinedAt: updated.joinedAt,
+    };
   }
 
   async leaveGroup(groupId: string, userId: string) {

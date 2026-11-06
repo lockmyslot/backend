@@ -266,7 +266,9 @@ describe('GroupsService', () => {
     });
     (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue(null);
     (prismaService.groupMember.create as jest.Mock).mockResolvedValue({});
-    (prismaService.groupInvite.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (prismaService.groupInvite.updateMany as jest.Mock).mockResolvedValue({
+      count: 1,
+    });
 
     const result = await service.joinGroup('user-3', { inviteCode: 'X7K9M2' });
     expect(result).toHaveProperty('role', GroupRole.MEMBER);
@@ -345,18 +347,171 @@ describe('GroupsService', () => {
   });
 
   it('should remove a member and cancel their future bookings', async () => {
-    (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue({
-      id: 'member-2',
-      groupId: 'group-1',
-      userId: 'user-2',
-      role: GroupRole.MEMBER,
-    });
+    (prismaService.groupMember.findUnique as jest.Mock).mockImplementation(
+      ({ where }) => {
+        if (where.groupId_userId?.userId === 'admin-1') {
+          return Promise.resolve({
+            id: 'member-1',
+            groupId: 'group-1',
+            userId: 'admin-1',
+            role: GroupRole.ADMIN,
+          });
+        }
+        return Promise.resolve({
+          id: 'member-2',
+          groupId: 'group-1',
+          userId: 'user-2',
+          role: GroupRole.MEMBER,
+        });
+      },
+    );
     (prismaService.groupMember.delete as jest.Mock).mockResolvedValue({});
     (prismaService.booking.updateMany as jest.Mock).mockResolvedValue({});
 
     await service.removeMember('group-1', 'admin-1', 'user-2');
     expect(prismaService.groupMember.delete).toHaveBeenCalled();
     expect(prismaService.booking.updateMany).toHaveBeenCalled();
+  });
+
+  it('should allow moderator to remove a guest', async () => {
+    (prismaService.groupMember.findUnique as jest.Mock).mockImplementation(
+      ({ where }) => {
+        if (where.groupId_userId?.userId === 'mod-1') {
+          return Promise.resolve({
+            id: 'member-mod',
+            groupId: 'group-1',
+            userId: 'mod-1',
+            role: GroupRole.MODERATOR,
+          });
+        }
+        return Promise.resolve({
+          id: 'member-guest',
+          groupId: 'group-1',
+          userId: 'guest-1',
+          role: GroupRole.GUEST,
+        });
+      },
+    );
+    (prismaService.groupMember.delete as jest.Mock).mockResolvedValue({});
+    (prismaService.booking.updateMany as jest.Mock).mockResolvedValue({});
+
+    await service.removeMember('group-1', 'mod-1', 'guest-1');
+    expect(prismaService.groupMember.delete).toHaveBeenCalled();
+  });
+
+  it('should throw ForbiddenException when moderator attempts to remove regular member', async () => {
+    (prismaService.groupMember.findUnique as jest.Mock).mockImplementation(
+      ({ where }) => {
+        if (where.groupId_userId?.userId === 'mod-1') {
+          return Promise.resolve({
+            id: 'member-mod',
+            groupId: 'group-1',
+            userId: 'mod-1',
+            role: GroupRole.MODERATOR,
+          });
+        }
+        return Promise.resolve({
+          id: 'member-2',
+          groupId: 'group-1',
+          userId: 'user-2',
+          role: GroupRole.MEMBER,
+        });
+      },
+    );
+
+    await expect(
+      service.removeMember('group-1', 'mod-1', 'user-2'),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('should update member role to MODERATOR', async () => {
+    (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue({
+      id: 'member-2',
+      groupId: 'group-1',
+      userId: 'user-2',
+      role: GroupRole.MEMBER,
+      user: { id: 'user-2', displayName: 'Bob', username: 'bob' },
+    });
+    (prismaService.groupMember.update as jest.Mock).mockResolvedValue({
+      id: 'member-2',
+      role: GroupRole.MODERATOR,
+      expiresAt: null,
+      joinedAt: new Date(),
+      user: { id: 'user-2', displayName: 'Bob', username: 'bob' },
+    });
+
+    const result = await service.updateMemberRole(
+      'group-1',
+      'admin-1',
+      'user-2',
+      {
+        role: GroupRole.MODERATOR,
+      },
+    );
+    expect(result.role).toBe(GroupRole.MODERATOR);
+  });
+
+  it('should update member role to GUEST with valid expiration date', async () => {
+    const futureDate = new Date(Date.now() + 86400000).toISOString();
+    (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue({
+      id: 'member-2',
+      groupId: 'group-1',
+      userId: 'user-2',
+      role: GroupRole.MEMBER,
+      user: { id: 'user-2', displayName: 'Bob', username: 'bob' },
+    });
+    (prismaService.groupMember.update as jest.Mock).mockResolvedValue({
+      id: 'member-2',
+      role: GroupRole.GUEST,
+      expiresAt: new Date(futureDate),
+      joinedAt: new Date(),
+      user: { id: 'user-2', displayName: 'Bob', username: 'bob' },
+    });
+
+    const result = await service.updateMemberRole(
+      'group-1',
+      'admin-1',
+      'user-2',
+      {
+        role: GroupRole.GUEST,
+        expiresAt: futureDate,
+      },
+    );
+    expect(result.role).toBe(GroupRole.GUEST);
+    expect(result.expiresAt).toBeDefined();
+  });
+
+  it('should throw BadRequestException when updating role to GUEST without expiration', async () => {
+    (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue({
+      id: 'member-2',
+      groupId: 'group-1',
+      userId: 'user-2',
+      role: GroupRole.MEMBER,
+      user: { id: 'user-2', displayName: 'Bob' },
+    });
+
+    await expect(
+      service.updateMemberRole('group-1', 'admin-1', 'user-2', {
+        role: GroupRole.GUEST,
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('should throw BadRequestException when demoting the sole admin', async () => {
+    (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue({
+      id: 'member-admin',
+      groupId: 'group-1',
+      userId: 'admin-1',
+      role: GroupRole.ADMIN,
+      user: { id: 'admin-1', displayName: 'Admin' },
+    });
+    (prismaService.groupMember.count as jest.Mock).mockResolvedValue(1);
+
+    await expect(
+      service.updateMemberRole('group-1', 'admin-1', 'admin-1', {
+        role: GroupRole.MEMBER,
+      }),
+    ).rejects.toThrow(BadRequestException);
   });
 
   it('should throw NotFoundException when leaving a group you are not in', async () => {

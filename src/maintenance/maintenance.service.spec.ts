@@ -373,6 +373,27 @@ describe('MaintenanceService', () => {
         ),
       ).rejects.toThrow();
     });
+
+    it('should throw BadRequestException if new assignedToId is a GUEST', async () => {
+      (prismaService.maintenanceTask.findFirst as jest.Mock).mockResolvedValue(
+        mockTask,
+      );
+      (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue({
+        id: 'member-guest',
+        role: GroupRole.GUEST,
+      });
+
+      await expect(
+        service.updateMaintenanceTask(
+          'group-1',
+          'res-1',
+          'task-1',
+          { assignedToId: 'guest-user' },
+          'user-admin',
+          GroupRole.ADMIN,
+        ),
+      ).rejects.toThrow(new BadRequestException('cannot_assign_to_guest'));
+    });
   });
 
   describe('deleteMaintenanceTask', () => {

@@ -185,6 +185,27 @@ describe('BookingsService', () => {
       expect(result).toHaveProperty('resourceName', 'Washing Machine');
       expect(result).toHaveProperty('status', BookingStatus.CONFIRMED);
     });
+
+    it('should throw BadRequestException if guest booking exceeds guest expiration date', async () => {
+      const dto = {
+        startTime: '2026-08-11T09:00:00.000Z',
+        endTime: '2026-08-11T10:00:00.000Z',
+      };
+      (prismaService.resource.findFirst as jest.Mock).mockResolvedValue(
+        mockResource,
+      );
+      if (!prismaService.groupMember) {
+        prismaService.groupMember = { findUnique: jest.fn() } as any;
+      }
+      (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue({
+        role: GroupRole.GUEST,
+        expiresAt: new Date('2026-08-11T09:30:00.000Z'), // expires before booking end
+      });
+
+      await expect(
+        service.createBooking('group-1', 'res-1', 'guest-1', dto),
+      ).rejects.toThrow(BadRequestException);
+    });
   });
 
   describe('getResourceBookings', () => {
@@ -292,7 +313,9 @@ describe('BookingsService', () => {
         slotDurationMinutes: 1440,
         capacity: 1,
       });
-      (prismaService.bookingRule.findFirst as jest.Mock).mockResolvedValue(null);
+      (prismaService.bookingRule.findFirst as jest.Mock).mockResolvedValue(
+        null,
+      );
       (prismaService.booking.findMany as jest.Mock).mockResolvedValue([]);
 
       const result = await service.getAvailability(
@@ -435,6 +458,23 @@ describe('BookingsService', () => {
         'booking-1',
         'user-1',
         GroupRole.ADMIN,
+      );
+      expect(prismaService.booking.update).toHaveBeenCalled();
+    });
+
+    it('should allow moderator to cancel someone elses booking', async () => {
+      (prismaService.booking.findFirst as jest.Mock).mockResolvedValue({
+        ...mockBooking,
+        userId: 'user-2',
+        startTime: new Date('2099-08-11T09:00:00.000Z'),
+      });
+      (prismaService.booking.update as jest.Mock).mockResolvedValue({});
+
+      await service.cancelBooking(
+        'group-1',
+        'booking-1',
+        'mod-1',
+        GroupRole.MODERATOR,
       );
       expect(prismaService.booking.update).toHaveBeenCalled();
     });

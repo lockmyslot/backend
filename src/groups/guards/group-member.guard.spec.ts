@@ -19,6 +19,10 @@ describe('GroupMemberGuard', () => {
     prismaService = {
       groupMember: {
         findUnique: jest.fn(),
+        delete: jest.fn(),
+      },
+      booking: {
+        updateMany: jest.fn(),
       },
       group: {
         findUnique: jest.fn(),
@@ -100,5 +104,49 @@ describe('GroupMemberGuard', () => {
     await expect(guard.canActivate(createContext(request))).rejects.toThrow(
       ForbiddenException,
     );
+  });
+
+  it('should auto-remove expired guest membership and cancel bookings', async () => {
+    const expiredGuest = {
+      id: 'member-1',
+      role: GroupRole.GUEST,
+      expiresAt: new Date(Date.now() - 10000), // 10s ago
+    };
+    (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue(
+      expiredGuest,
+    );
+    (prismaService.groupMember.delete as jest.Mock).mockResolvedValue({});
+    (prismaService.booking.updateMany as jest.Mock).mockResolvedValue({});
+
+    const request = { user: { id: 'user-guest' }, params: { id: 'group-1' } };
+    await expect(guard.canActivate(createContext(request))).rejects.toThrow(
+      new ForbiddenException('Membership has expired'),
+    );
+
+    expect(prismaService.groupMember.delete).toHaveBeenCalledWith({
+      where: {
+        groupId_userId: {
+          groupId: 'group-1',
+          userId: 'user-guest',
+        },
+      },
+    });
+    expect(prismaService.booking.updateMany).toHaveBeenCalled();
+  });
+
+  it('should allow active guest membership', async () => {
+    const activeGuest = {
+      id: 'member-1',
+      role: GroupRole.GUEST,
+      expiresAt: new Date(Date.now() + 86400000), // tomorrow
+    };
+    (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue(
+      activeGuest,
+    );
+    reflector.getAllAndOverride.mockReturnValue(undefined);
+
+    const request = { user: { id: 'user-guest' }, params: { id: 'group-1' } };
+    const result = await guard.canActivate(createContext(request));
+    expect(result).toBe(true);
   });
 });

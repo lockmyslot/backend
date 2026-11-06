@@ -1,5 +1,6 @@
 import { GroupsController } from './groups.controller';
 import { GroupsService } from './groups.service';
+import { GroupRole } from '@prisma/client';
 
 describe('GroupsController', () => {
   let controller: GroupsController;
@@ -14,6 +15,7 @@ describe('GroupsController', () => {
       updateGroup: jest.fn(),
       togglePinGroup: jest.fn(),
       getMembers: jest.fn(),
+      updateMemberRole: jest.fn(),
       removeMember: jest.fn(),
       leaveGroup: jest.fn(),
       regenerateInviteCode: jest.fn(),
@@ -103,6 +105,28 @@ describe('GroupsController', () => {
     const result = await controller.getMembers('group-1');
     expect(groupsService.getMembers).toHaveBeenCalledWith('group-1');
     expect(result).toEqual([]);
+  });
+
+  it('should delegate updateMemberRole', async () => {
+    const dto = { role: GroupRole.MODERATOR };
+    groupsService.updateMemberRole.mockResolvedValue({
+      id: 'user-2',
+      role: GroupRole.MODERATOR,
+    });
+
+    const result = await controller.updateMemberRole(
+      'group-1',
+      'user-2',
+      { id: 'user-1' } as any,
+      dto,
+    );
+    expect(groupsService.updateMemberRole).toHaveBeenCalledWith(
+      'group-1',
+      'user-1',
+      'user-2',
+      dto,
+    );
+    expect(result).toHaveProperty('role', GroupRole.MODERATOR);
   });
 
   it('should delegate removeMember', async () => {

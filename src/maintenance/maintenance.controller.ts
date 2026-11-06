@@ -36,10 +36,10 @@ export class MaintenanceController {
   constructor(private readonly maintenanceService: MaintenanceService) {}
 
   @Post('resources/:resource_id/maintenance')
-  @Roles(GroupRole.ADMIN)
+  @Roles(GroupRole.ADMIN, GroupRole.MODERATOR)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
-    summary: 'Schedule a maintenance task for a resource (ADMIN only)',
+    summary: 'Schedule a maintenance task for a resource (ADMIN or MODERATOR)',
   })
   @ApiResponse({ status: 201, description: 'Maintenance task created' })
   @ApiResponse({

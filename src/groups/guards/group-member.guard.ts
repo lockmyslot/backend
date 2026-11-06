@@ -8,7 +8,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ROLES_KEY } from '../../common/decorators/roles.decorator';
-import { GroupRole } from '@prisma/client';
+import { GroupRole, BookingStatus } from '@prisma/client';
 
 @Injectable()
 export class GroupMemberGuard implements CanActivate {
@@ -49,6 +49,37 @@ export class GroupMemberGuard implements CanActivate {
         throw new NotFoundException('Group not found');
       }
       throw new ForbiddenException('You are not a member of this group');
+    }
+
+    if (
+      membership.role === GroupRole.GUEST &&
+      membership.expiresAt &&
+      membership.expiresAt <= new Date()
+    ) {
+      await this.prisma.groupMember.delete({
+        where: {
+          groupId_userId: {
+            groupId,
+            userId: user.id,
+          },
+        },
+      });
+
+      await this.prisma.booking.updateMany({
+        where: {
+          groupId,
+          userId: user.id,
+          status: BookingStatus.CONFIRMED,
+          startTime: {
+            gt: new Date(),
+          },
+        },
+        data: {
+          status: BookingStatus.CANCELLED,
+        },
+      });
+
+      throw new ForbiddenException('Membership has expired');
     }
 
     request.groupMember = membership;
