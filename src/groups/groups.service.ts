@@ -344,6 +344,8 @@ export class GroupsService {
 
     return members.map((m) => ({
       id: m.user.id,
+      userId: m.user.id,
+      groupId: m.groupId,
       displayName: m.user.displayName,
       username: m.user.username,
       role: m.role,

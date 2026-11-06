@@ -406,6 +406,7 @@ describe('GroupsService', () => {
     const result = await service.getMembers('group-1');
     expect(result[0]).toHaveProperty('displayName', 'Alice');
     expect(result[0]).toHaveProperty('role', GroupRole.ADMIN);
+    expect(result[0]).toHaveProperty('userId', 'user-1');
   });
 
   it('should throw NotFoundException if target member not found in removeMember', async () => {
