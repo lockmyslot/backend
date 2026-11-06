@@ -100,6 +100,8 @@ model GroupInvite {
   groupId       String       @map("group_id") @db.Uuid
   invitedUserId String       @map("invited_user_id") @db.Uuid
   invitedById   String       @map("invited_by_id") @db.Uuid
+  role          GroupRole    @default(GUEST)
+  expiresAt     DateTime?    @map("expires_at")
   status        InviteStatus @default(PENDING)
   createdAt     DateTime     @default(now()) @map("created_at")
   updatedAt     DateTime     @updatedAt @map("updated_at")

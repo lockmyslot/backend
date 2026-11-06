@@ -34,6 +34,7 @@ describe('GroupsService', () => {
       },
       groupInvite: {
         findUnique: jest.fn(),
+        findFirst: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
         updateMany: jest.fn(),
@@ -273,14 +274,83 @@ describe('GroupsService', () => {
     const result = await service.joinGroup('user-3', { inviteCode: 'X7K9M2' });
     expect(result).toHaveProperty('role', GroupRole.MEMBER);
     expect(result).toHaveProperty('memberCount', 3);
-    expect(prismaService.groupInvite.updateMany).toHaveBeenCalledWith({
-      where: {
-        groupId: 'group-1',
-        invitedUserId: 'user-3',
-        status: InviteStatus.PENDING,
-      },
+    expect(prismaService.groupMember.create).toHaveBeenCalledWith({
       data: {
-        status: InviteStatus.ACCEPTED,
+        groupId: 'group-1',
+        userId: 'user-3',
+        role: GroupRole.MEMBER,
+        expiresAt: null,
+      },
+    });
+  });
+
+  it('should honor pending invite role and expiration when user joins with invite code', async () => {
+    const inviteExpiry = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
+    (prismaService.group.findUnique as jest.Mock).mockResolvedValue({
+      id: 'group-1',
+      name: 'Apartment 4B',
+      inviteCode: 'X7K9M2',
+      createdAt: new Date(),
+      _count: { members: 2 },
+    });
+    (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue(null);
+    (prismaService.groupInvite.findFirst as jest.Mock).mockResolvedValue({
+      id: 'invite-1',
+      groupId: 'group-1',
+      invitedUserId: 'user-guest',
+      role: GroupRole.GUEST,
+      expiresAt: inviteExpiry,
+      status: InviteStatus.PENDING,
+    });
+    (prismaService.groupMember.create as jest.Mock).mockResolvedValue({});
+    (prismaService.groupInvite.updateMany as jest.Mock).mockResolvedValue({
+      count: 1,
+    });
+
+    const result = await service.joinGroup('user-guest', { inviteCode: 'X7K9M2' });
+    expect(result).toHaveProperty('role', GroupRole.GUEST);
+    expect(result).toHaveProperty('expiresAt', inviteExpiry);
+    expect(prismaService.groupMember.create).toHaveBeenCalledWith({
+      data: {
+        groupId: 'group-1',
+        userId: 'user-guest',
+        role: GroupRole.GUEST,
+        expiresAt: inviteExpiry,
+      },
+    });
+  });
+
+  it('should ignore any malicious role injection in join payload and never grant ADMIN', async () => {
+    (prismaService.group.findUnique as jest.Mock).mockResolvedValue({
+      id: 'group-1',
+      name: 'Apartment 4B',
+      inviteCode: 'X7K9M2',
+      createdAt: new Date(),
+      _count: { members: 2 },
+    });
+    (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue(null);
+    (prismaService.groupInvite.findFirst as jest.Mock).mockResolvedValue(null);
+    (prismaService.groupMember.create as jest.Mock).mockResolvedValue({});
+    (prismaService.groupInvite.updateMany as jest.Mock).mockResolvedValue({
+      count: 0,
+    });
+
+    // Even if an attacker passes extra properties or query params (cast as any)
+    const maliciousPayload = {
+      inviteCode: 'X7K9M2',
+      role: 'ADMIN',
+      isAdmin: true,
+    } as any;
+
+    const result = await service.joinGroup('attacker-user', maliciousPayload);
+    // Role MUST be MEMBER (or from invite), never ADMIN
+    expect(result.role).toBe(GroupRole.MEMBER);
+    expect(prismaService.groupMember.create).toHaveBeenCalledWith({
+      data: {
+        groupId: 'group-1',
+        userId: 'attacker-user',
+        role: GroupRole.MEMBER,
+        expiresAt: null,
       },
     });
   });
@@ -698,6 +768,8 @@ describe('GroupsService', () => {
         groupId: 'group-1',
         invitedUserId: 'user-2',
         invitedById: 'admin-1',
+        role: GroupRole.GUEST,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         status: 'PENDING',
         createdAt: new Date('2026-10-25T12:00:00Z'),
       });
@@ -718,6 +790,8 @@ describe('GroupsService', () => {
           groupId: 'group-1',
           invitedUserId: 'user-2',
           invitedById: 'admin-1',
+          role: GroupRole.GUEST,
+          expiresAt: expect.any(Date),
           status: 'PENDING',
         },
       });
@@ -730,9 +804,77 @@ describe('GroupsService', () => {
         invitedUserId: 'user-2',
         displayName: 'Bob Builder',
         username: 'bob',
+        role: GroupRole.GUEST,
+        expiresAt: expect.any(Date),
         status: 'PENDING',
         createdAt: new Date('2026-10-25T12:00:00Z'),
       });
+    });
+
+    it('should allow admin to invite member with explicit role and custom expiresAt', async () => {
+      (prismaService.group.findUnique as jest.Mock).mockResolvedValue({
+        id: 'group-1',
+        name: 'Group 1',
+      });
+      (prismaService.user.findFirst as jest.Mock).mockResolvedValue({
+        id: 'user-3',
+        displayName: 'Charlie',
+        username: 'charlie',
+      });
+      (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue(null);
+      (prismaService.groupInvite.findUnique as jest.Mock).mockResolvedValue(null);
+      const customExpiry = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+      (prismaService.groupInvite.create as jest.Mock).mockResolvedValue({
+        id: 'invite-2',
+        groupId: 'group-1',
+        invitedUserId: 'user-3',
+        invitedById: 'admin-1',
+        role: GroupRole.MODERATOR,
+        expiresAt: null,
+        status: 'PENDING',
+        createdAt: new Date('2026-10-25T12:00:00Z'),
+      });
+
+      const result = await service.inviteMemberByUsername(
+        'group-1',
+        'admin-1',
+        { username: 'charlie', role: GroupRole.MODERATOR },
+      );
+
+      expect(prismaService.groupInvite.create).toHaveBeenCalledWith({
+        data: {
+          groupId: 'group-1',
+          invitedUserId: 'user-3',
+          invitedById: 'admin-1',
+          role: GroupRole.MODERATOR,
+          expiresAt: null,
+          status: 'PENDING',
+        },
+      });
+      expect(result.role).toBe(GroupRole.MODERATOR);
+      expect(result.expiresAt).toBeNull();
+    });
+
+    it('should throw BadRequestException if guest expiration is in the past', async () => {
+      (prismaService.group.findUnique as jest.Mock).mockResolvedValue({
+        id: 'group-1',
+        name: 'Group 1',
+      });
+      (prismaService.user.findFirst as jest.Mock).mockResolvedValue({
+        id: 'user-4',
+        displayName: 'Dave',
+        username: 'dave',
+      });
+      (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue(null);
+      (prismaService.groupInvite.findUnique as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.inviteMemberByUsername('group-1', 'admin-1', {
+          username: 'dave',
+          role: GroupRole.GUEST,
+          expiresAt: new Date(Date.now() - 10000).toISOString(),
+        }),
+      ).rejects.toThrow('invalid_expiration_date');
     });
   });
 });

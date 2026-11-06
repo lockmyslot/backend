@@ -33,6 +33,8 @@ export class InvitesService {
       invitedById: invite.invitedById,
       invitedByName: invite.invitedBy.displayName,
       invitedByUsername: invite.invitedBy.username,
+      role: invite.role,
+      expiresAt: invite.expiresAt,
       status: invite.status,
       createdAt: invite.createdAt,
     }));
@@ -71,7 +73,8 @@ export class InvitesService {
         data: {
           groupId: invite.groupId,
           userId,
-          role: GroupRole.MEMBER,
+          role: invite.role,
+          expiresAt: invite.role === GroupRole.GUEST ? invite.expiresAt : null,
         },
       });
     }
@@ -85,6 +88,8 @@ export class InvitesService {
       id: updatedInvite.id,
       groupId: invite.groupId,
       groupName: invite.group.name,
+      role: invite.role,
+      expiresAt: invite.role === GroupRole.GUEST ? invite.expiresAt : null,
       status: updatedInvite.status,
     };
   }

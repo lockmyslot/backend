@@ -254,11 +254,25 @@ export class GroupsService {
       throw new ConflictException('already_a_member');
     }
 
+    // Check if there is an explicit pending direct invite for this user
+    const pendingInvite = await this.prisma.groupInvite.findFirst({
+      where: {
+        groupId: group.id,
+        invitedUserId: userId,
+        status: InviteStatus.PENDING,
+      },
+    });
+
+    const joinRole = pendingInvite?.role ?? GroupRole.MEMBER;
+    const joinExpiresAt =
+      joinRole === GroupRole.GUEST ? pendingInvite?.expiresAt ?? null : null;
+
     await this.prisma.groupMember.create({
       data: {
         groupId: group.id,
         userId,
-        role: GroupRole.MEMBER,
+        role: joinRole,
+        expiresAt: joinExpiresAt,
       },
     });
 
@@ -277,7 +291,8 @@ export class GroupsService {
     return {
       id: group.id,
       name: group.name,
-      role: GroupRole.MEMBER,
+      role: joinRole,
+      expiresAt: joinExpiresAt,
       memberCount: group._count.members + 1,
       createdAt: group.createdAt,
       isPinned: false,
@@ -395,6 +410,22 @@ export class GroupsService {
       throw new ConflictException('invite_already_pending');
     }
 
+    const targetRole = dto.role ?? GroupRole.GUEST;
+    let targetExpiresAt: Date | null = null;
+
+    if (targetRole === GroupRole.GUEST) {
+      if (dto.expiresAt) {
+        const parsed = new Date(dto.expiresAt);
+        if (isNaN(parsed.getTime()) || parsed <= new Date()) {
+          throw new BadRequestException('invalid_expiration_date');
+        }
+        targetExpiresAt = parsed;
+      } else {
+        // Default guest access to 7 days
+        targetExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      }
+    }
+
     let invite;
     if (existingInvite) {
       invite = await this.prisma.groupInvite.update({
@@ -402,6 +433,8 @@ export class GroupsService {
         data: {
           status: InviteStatus.PENDING,
           invitedById: currentUserId,
+          role: targetRole,
+          expiresAt: targetExpiresAt,
         },
       });
     } else {
@@ -410,6 +443,8 @@ export class GroupsService {
           groupId,
           invitedUserId: targetUser.id,
           invitedById: currentUserId,
+          role: targetRole,
+          expiresAt: targetExpiresAt,
           status: InviteStatus.PENDING,
         },
       });
@@ -424,6 +459,8 @@ export class GroupsService {
       invitedUserId: targetUser.id,
       displayName: targetUser.displayName,
       username: targetUser.username,
+      role: invite.role,
+      expiresAt: invite.expiresAt,
       status: invite.status,
       createdAt: invite.createdAt,
     };

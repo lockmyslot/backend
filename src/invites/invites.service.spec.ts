@@ -44,6 +44,8 @@ describe('InvitesService', () => {
           group: { name: 'Basketball Team' },
           invitedById: 'admin-1',
           invitedBy: { displayName: 'Coach John', username: 'john' },
+          role: GroupRole.GUEST,
+          expiresAt: new Date('2026-11-20T00:00:00Z'),
           status: InviteStatus.PENDING,
           createdAt: new Date('2026-10-25T10:00:00Z'),
         },
@@ -73,6 +75,8 @@ describe('InvitesService', () => {
           invitedById: 'admin-1',
           invitedByName: 'Coach John',
           invitedByUsername: 'john',
+          role: GroupRole.GUEST,
+          expiresAt: new Date('2026-11-20T00:00:00Z'),
           status: InviteStatus.PENDING,
           createdAt: new Date('2026-10-25T10:00:00Z'),
         },
@@ -114,11 +118,14 @@ describe('InvitesService', () => {
       );
     });
 
-    it('should accept invite, create group member, and update status', async () => {
+    it('should accept GUEST invite, create group member with GUEST role and expiresAt', async () => {
+      const expiry = new Date('2026-11-25T00:00:00Z');
       (prismaService.groupInvite.findUnique as jest.Mock).mockResolvedValue({
         id: 'invite-1',
         groupId: 'group-1',
         invitedUserId: 'user-1',
+        role: GroupRole.GUEST,
+        expiresAt: expiry,
         status: InviteStatus.PENDING,
         group: { name: 'Soccer Club' },
       });
@@ -134,7 +141,8 @@ describe('InvitesService', () => {
         data: {
           groupId: 'group-1',
           userId: 'user-1',
-          role: GroupRole.MEMBER,
+          role: GroupRole.GUEST,
+          expiresAt: expiry,
         },
       });
       expect(prismaService.groupInvite.update).toHaveBeenCalledWith({
@@ -145,8 +153,40 @@ describe('InvitesService', () => {
         id: 'invite-1',
         groupId: 'group-1',
         groupName: 'Soccer Club',
+        role: GroupRole.GUEST,
+        expiresAt: expiry,
         status: InviteStatus.ACCEPTED,
       });
+    });
+
+    it('should accept MODERATOR invite, create group member with MODERATOR and null expiresAt', async () => {
+      (prismaService.groupInvite.findUnique as jest.Mock).mockResolvedValue({
+        id: 'invite-2',
+        groupId: 'group-1',
+        invitedUserId: 'user-1',
+        role: GroupRole.MODERATOR,
+        expiresAt: null,
+        status: InviteStatus.PENDING,
+        group: { name: 'Soccer Club' },
+      });
+      (prismaService.groupMember.findUnique as jest.Mock).mockResolvedValue(null);
+      (prismaService.groupInvite.update as jest.Mock).mockResolvedValue({
+        id: 'invite-2',
+        status: InviteStatus.ACCEPTED,
+      });
+
+      const result = await service.acceptInvite('invite-2', 'user-1');
+
+      expect(prismaService.groupMember.create).toHaveBeenCalledWith({
+        data: {
+          groupId: 'group-1',
+          userId: 'user-1',
+          role: GroupRole.MODERATOR,
+          expiresAt: null,
+        },
+      });
+      expect(result.role).toBe(GroupRole.MODERATOR);
+      expect(result.expiresAt).toBeNull();
     });
   });
 
